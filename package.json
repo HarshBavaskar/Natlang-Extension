@@ -176,7 +176,7 @@
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
     "eslint": "^8.56.0",
-    "esbuild": "^0.19.11",
+    "esbuild": "^0.28.0",
     "typescript": "^5.3.3"
   }
 }

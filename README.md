@@ -1,6 +1,11 @@
 # NatLang: Natural Language to Code Extension for VS Code
 
-![NatLang Logo](resources/logo.png)
+<div align="center">
+  
+  <img src="resources/logo.png" width="300" />
+  <p></p>
+</div>
+
 
 NatLang is a powerful Visual Studio Code extension that allows developers to write logic in plain English pseudocode and instantly generate production-ready code in over 30 programming languages. It leverages advanced AI models from Ollama, Anthropic, Gemini, and OpenAI to provide accurate, real-time code generation directly within the editor.
 

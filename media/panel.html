@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NatLang</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default-dark.min.css">
+</head>
+<body>
+  <div id="header">
+    <span id="logo">⚡ NatLang</span>
+    <button id="settings-toggle">⚙</button>
+  </div>
+
+  <div id="controls">
+    <label>Language</label>
+    <select id="language-select">
+      <option value="Python">Python</option>
+      <option value="JavaScript">JavaScript</option>
+      <option value="TypeScript">TypeScript</option>
+      <option value="Java">Java</option>
+      <option value="C">C</option>
+      <option value="C++">C++</option>
+      <option value="C#">C#</option>
+      <option value="Go">Go</option>
+      <option value="Rust">Rust</option>
+      <option value="Swift">Swift</option>
+      <option value="Kotlin">Kotlin</option>
+      <option value="Ruby">Ruby</option>
+      <option value="PHP">PHP</option>
+      <option value="Scala">Scala</option>
+      <option value="R">R</option>
+      <option value="Dart">Dart</option>
+      <option value="Lua">Lua</option>
+      <option value="Bash">Bash</option>
+      <option value="PowerShell">PowerShell</option>
+      <option value="SQL">SQL</option>
+      <option value="HTML">HTML</option>
+      <option value="CSS">CSS</option>
+      <option value="React JSX">React JSX</option>
+      <option value="Vue">Vue</option>
+      <option value="Haskell">Haskell</option>
+      <option value="Elixir">Elixir</option>
+      <option value="Julia">Julia</option>
+      <option value="MATLAB">MATLAB</option>
+      <option value="Perl">Perl</option>
+      <option value="Zig">Zig</option>
+    </select>
+    <label>Provider</label>
+    <select id="provider-select">
+      <option value="ollama">Ollama (Local)</option>
+      <option value="anthropic">Anthropic Claude</option>
+      <option value="gemini">Google Gemini</option>
+      <option value="openai">OpenAI</option>
+    </select>
+  </div>
+
+  <div id="settings-panel" style="display:none">
+    <button class="key-btn" data-provider="anthropic">Set Anthropic Key</button>
+    <button class="key-btn" data-provider="gemini">Set Gemini Key</button>
+    <button class="key-btn" data-provider="openai">Set OpenAI Key</button>
+    <input id="ollama-url" type="text" placeholder="Ollama URL" />
+    <input id="ollama-model" type="text" placeholder="Ollama Model" />
+  </div>
+
+  <div id="output-section">
+    <div id="output-label">GENERATED CODE</div>
+    <pre id="code-block"><code id="code-content">// Ready for code...</code></pre>
+    <div id="actions">
+      <button id="copy-btn">📋 Copy</button>
+      <button id="save-btn">💾 Save</button>
+      <button id="run-btn">▶ Run</button>
+    </div>
+  </div>
+
+  <div id="history-section">
+    <div id="history-label">HISTORY</div>
+    <div id="history-list"></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>

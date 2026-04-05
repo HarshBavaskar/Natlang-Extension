@@ -1,0 +1,51 @@
+{
+  "scopeName": "source.natlang",
+  "fileTypes": [".nl"],
+  "patterns": [
+    {
+      "match": "\\b(define|create|if|else|for|while|return|call|with|repeat|until|check|connect|print|store|get|make|that takes|fetch|send|wait|set|add|remove|sort|filter|each|in|is|not|and|or|to|from|into|of|as|then|otherwise)\\b",
+      "name": "keyword.control.natlang"
+    },
+    {
+      "match": "\\b(class|interface|abstract class|extends|implements|inherits from|overrides|encapsulate|instantiate|constructor|new instance of|this|super|object of|blueprint for)\\b",
+      "name": "keyword.declaration.oop.natlang"
+    },
+    {
+      "match": "\\b(public|private|protected|static|final|readonly|override|virtual|sealed)\\b",
+      "name": "storage.modifier.natlang"
+    },
+    {
+      "begin": "^\\s*#",
+      "end": "$",
+      "name": "comment.line.natlang"
+    },
+    {
+      "begin": "\"",
+      "end": "\"",
+      "name": "string.quoted.double.natlang",
+      "patterns": [{ "match": "\\\\.", "name": "constant.character.escape.natlang" }]
+    },
+    {
+      "begin": "'",
+      "end": "'",
+      "name": "string.quoted.single.natlang",
+      "patterns": [{ "match": "\\\\.", "name": "constant.character.escape.natlang" }]
+    },
+    {
+      "match": "\\b-?\\d+(\\.\\d+)?\\b",
+      "name": "constant.numeric.natlang"
+    },
+    {
+      "match": "^---$",
+      "name": "keyword.operator.natlang"
+    },
+    {
+      "match": ":$",
+      "name": "punctuation.definition.block.natlang"
+    },
+    {
+      "match": "\\b\\w+\\b",
+      "name": "variable.other.natlang"
+    }
+  ]
+}

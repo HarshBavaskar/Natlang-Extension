@@ -1,0 +1,182 @@
+{
+  "name": "natlang",
+  "displayName": "NatLang",
+  "description": "Write pseudocode. Get real code. Powered by AI.",
+  "version": "1.0.0",
+  "icon": "resources/logo.png",
+  "publisher": "HarshBavaskar",
+  "author": {
+    "name": "Harsh Bavaskar",
+    "url": "https://github.com/HarshBavaskar"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HarshBavaskar/natlang-vscode.git"
+  },
+  "homepage": "https://github.com/HarshBavaskar/natlang-vscode",
+  "bugs": {
+    "url": "https://github.com/HarshBavaskar/natlang-vscode/issues"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Education",
+    "Snippets"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "natlang",
+        "aliases": [
+          "NatLang",
+          "natlang"
+        ],
+        "extensions": [
+          ".nl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "natlang",
+        "scopeName": "source.natlang",
+        "path": "./syntaxes/natlang.tmLanguage.json"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "natlang-explorer",
+          "title": "NatLang",
+          "icon": "resources/logo.png"
+        }
+      ]
+    },
+    "views": {
+      "natlang-explorer": [
+        {
+          "type": "webview",
+          "id": "natlang.sidepanel",
+          "name": "NatLang Sidebar",
+          "icon": "resources/logo.png"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "natlang.generate",
+        "title": "NatLang: Generate Code",
+        "icon": "$(zap)"
+      },
+      {
+        "command": "natlang.changeLanguage",
+        "title": "NatLang: Change Language"
+      },
+      {
+        "command": "natlang.setApiKey",
+        "title": "NatLang: Set API Key"
+      },
+      {
+        "command": "natlang.saveGenerated",
+        "title": "NatLang: Save Generated Code"
+      },
+      {
+        "command": "natlang.runGenerated",
+        "title": "NatLang: Run Generated Code",
+        "icon": "$(play)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "natlang.generate",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "natlang.generate",
+          "group": "navigation",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "natlang.runGenerated",
+          "group": "navigation",
+          "when": "editorTextFocus"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "NatLang",
+      "properties": {
+        "natlang.aiProvider": {
+          "type": "string",
+          "enum": [
+            "ollama",
+            "anthropic",
+            "gemini",
+            "openai"
+          ],
+          "default": "ollama",
+          "description": "The AI provider to use for transformation."
+        },
+        "natlang.ollamaBaseUrl": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Base URL for Ollama API."
+        },
+        "natlang.ollamaModel": {
+          "type": "string",
+          "default": "codellama",
+          "description": "Ollama model name."
+        },
+        "natlang.anthropicModel": {
+          "type": "string",
+          "default": "claude-3-5-sonnet-20240620",
+          "description": "Anthropic model name."
+        },
+        "natlang.geminiModel": {
+          "type": "string",
+          "default": "gemini-2.0-flash",
+          "description": "Gemini model name."
+        },
+        "natlang.dictionaryMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Group history into folders by topic/file in the sidebar."
+        },
+        "natlang.defaultLanguage": {
+          "type": "string",
+          "default": "Python",
+          "description": "Default target language for transpilation."
+        },
+        "natlang.openaiModel": {
+          "type": "string",
+          "default": "gpt-4o",
+          "description": "OpenAI model to use."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "18.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "eslint": "^8.56.0",
+    "esbuild": "^0.19.11",
+    "typescript": "^5.3.3"
+  }
+}

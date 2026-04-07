@@ -8,7 +8,6 @@
 # NatLang: The Intelligence-Driven Transpilation Engine
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub release](https://img.shields.io/github/release/HarshBavaskar/natlang-vscode.svg)](https://github.com/HarshBavaskar/NatLang-Extension/releases)
 [![Build Status](https://img.shields.io/badge/status-stable-success.svg)](https://github.com/HarshBavaskar/NatLang-Extension)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Followers](https://img.shields.io/github/followers/HarshBavaskar?style=social)](https://github.com/HarshBavaskar)

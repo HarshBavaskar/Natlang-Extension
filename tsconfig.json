@@ -10,6 +10,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "esModuleInterop": true,
+    "types": ["node"],
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "sourceMap": true,

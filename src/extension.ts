@@ -209,10 +209,6 @@ export function activate(context: vscode.ExtensionContext) {
         let firstToken = true;
 
         const code = await engine.generate(pseudocode, language, fileName, async (token) => {
-          if (sidePanel) {
-            sidePanel.postToken(token);
-          }
-
           // Live Typing into the editor
           if (firstToken) {
             // On the very first token, clear the existing pseudocode
@@ -237,10 +233,6 @@ export function activate(context: vscode.ExtensionContext) {
           
           currentRange = new vscode.Range(range.start, new vscode.Position(newEndLine, newEndCharacter));
         });
-
-        if (sidePanel) {
-          sidePanel.postDone(code, language);
-        }
 
         // REPLACE CODE IN EDITOR
         await editor.edit(editBuilder => {

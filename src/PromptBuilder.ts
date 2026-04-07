@@ -9,6 +9,7 @@ Rules:
 - NO markdown fences (triple backticks). 
 - NO backtick wrappers (single backticks). 
 - NO explanations, preambles, or conversational phrases. 
+- Use real operators and punctuation only; never spell operators out as words such as plus, minus, times, divided by, and, or, or not.
 - Start the response with code IMMEDIATELY.
 - Use ${language}'s native idioms, conventions, and best practices.
 - Preserve the logical intent of every pseudocode line exactly.
@@ -28,6 +29,7 @@ Java-specific rules:
 - Class naming: PascalCase. Method naming: camelCase. Constants: UPPER_SNAKE_CASE.
 - Every class must have: a no-arg constructor if needed, and toString().
 - The public class containing main() must be named NatLangOutput — this is required for the run command to work without knowing the class name in advance.
+- Use code operators like +, -, *, /, &&, ||, ==, !=, <=, >= instead of written words.
 - Use generics where collections are involved (List<T>, Map<K,V>, not raw types).
 - Handle checked exceptions explicitly. Never swallow them with an empty catch block.
 - Use StringBuilder for string concatenation in loops, not the + operator.

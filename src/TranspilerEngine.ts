@@ -193,26 +193,25 @@ export class TranspilerEngine {
 
   private cleanupCode(code: string): string {
     let result = code.trim();
-    
-    // Remove markdown fences
-    if (result.includes('```')) {
-        const match = result.match(/```(?:\w+)?\n([\s\S]+?)\n?```/);
-        if (match && match[1]) {
-            result = match[1];
-        } else {
-            result = result.replace(/```/g, '');
-        }
+
+    // Prefer fenced body when model wraps code in markdown.
+    const fenced = result.match(/```(?:[\w#+.-]+)?\s*\n?([\s\S]*?)\n?```/);
+    if (fenced && fenced[1]) {
+      result = fenced[1].trim();
     }
-    
-    // Remove conversational filler
-    result = result.replace(/^(Here is|Sure|Sure!|Certainly|As requested|Below is|The code|Transforming).+?:\n+/i, '');
-    
-    // FINAL SAFETY: Strip all comments manually
-    // Handles //, /* */ and #
-    result = result.replace(/\/\*[\s\S]*?\*\/|([^:]|^)\/\/.*|#.*/g, '$1');
-    
-    // Remove empty lines created by comment stripping
-    return result.split('\n').filter(line => line.trim().length > 0).join('\n').trim();
+
+    // Remove markdown wrappers and lightweight formatting that can leak into output.
+    result = result.replace(/```(?:[\w#+.-]+)?/g, '');
+    result = result.replace(/~~~(?:[\w#+.-]+)?/g, '');
+    result = result.replace(/^\s{0,3}#{1,6}\s+/gm, '');
+    result = result.replace(/^\s{0,3}(?:[-*+]|\d+\.)\s+(?=[A-Za-z])/gm, '');
+    result = result.replace(/^\s*`([^`]+)`\s*$/gm, '$1');
+
+    // Remove conversational preambles, keep actual code untouched.
+    result = result.replace(/^(Here is|Here's|Sure|Certainly|As requested|Below is|The code|Transforming).+?:\n+/i, '');
+
+    // Trim only leading/trailing empty lines; preserve code structure.
+    return result.replace(/^\s*\n+|\n+\s*$/g, '');
   }
 
 

@@ -1,0 +1,7 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Ultimate Minimalist Flat N -->
+  <path d="M260 812V212H410L614 620V212H764V812H614L410 404V812H260Z" fill="#4F46E5">
+    <!-- Subtle Ready Signal (Breathe) Animation -->
+    <animate attributeName="fill-opacity" values="1;0.8;1" dur="4s" repeatCount="indefinite" />
+  </path>
+</svg>

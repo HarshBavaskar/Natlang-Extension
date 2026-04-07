@@ -1,0 +1,8 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g>
+    <animateTransform attributeName="transform" type="translate" values="0,0; 0,-2; 0,0" dur="2s" repeatCount="indefinite" />
+    <path d="M32 10L42 20V44L32 54L22 44V20L32 10Z" stroke="#4F46E5" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M22 44H42" stroke="#4F46E5" stroke-width="4"/>
+    <path d="M28 54L36 54" stroke="#4F46E5" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

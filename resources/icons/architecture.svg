@@ -1,0 +1,15 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="32" cy="12" r="6" stroke="#4F46E5" stroke-width="4"/>
+  <circle cx="16" cy="40" r="6" stroke="#4F46E5" stroke-width="4"/>
+  <circle cx="48" cy="40" r="6" stroke="#4F46E5" stroke-width="4"/>
+  
+  <path d="M32 18L16 34" stroke="#4F46E5" stroke-width="4" stroke-linecap="round">
+    <animate attributeName="stroke-dasharray" values="0,64;64,0" dur="2s" repeatCount="indefinite" />
+  </path>
+  <path d="M32 18L48 34" stroke="#4F46E5" stroke-width="4" stroke-linecap="round">
+    <animate attributeName="stroke-dasharray" values="0,64;64,0" dur="2s" begin="0.5s" repeatCount="indefinite" />
+  </path>
+  <path d="M16 40H48" stroke="#4F46E5" stroke-width="4" stroke-linecap="round">
+    <animate attributeName="stroke-opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" />
+  </path>
+</svg>

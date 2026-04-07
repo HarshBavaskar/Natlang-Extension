@@ -3,7 +3,7 @@
   "displayName": "NatLang",
   "description": "Write pseudocode. Get real code. Powered by AI.",
   "version": "1.1.0",
-  "icon": "resources/logo.png",
+  "icon": "resources/logo.svg",
   "publisher": "HarshBavaskar",
   "author": {
     "name": "Harsh Bavaskar",
@@ -53,7 +53,7 @@
         {
           "id": "natlang-explorer",
           "title": "NatLang",
-          "icon": "resources/logo.png"
+          "icon": "resources/logo.svg"
         }
       ]
     },
@@ -63,7 +63,7 @@
           "type": "webview",
           "id": "natlang.sidepanel",
           "name": "NatLang Sidebar",
-          "icon": "resources/logo.png"
+          "icon": "resources/logo.svg"
         }
       ]
     },

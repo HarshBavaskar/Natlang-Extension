@@ -1,16 +1,11 @@
 <p align="center">
   <img src="resources/logo.svg" alt="NatLang Logo" width="300" />
 </p>
-
-<h1 align="center">NatLang</h1>
-
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.1.0-blue.svg" alt="Version" />
-  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" />
-  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" />
+  <img src="https://img.shields.io/badge/Version-1.1.0-blue.svg" alt="Version" />
 </p>
 
-# NatLang: The Intelligence-Driven Transpilation Engine (v1.1)
+# NatLang: The Intelligence-Driven Transpilation Engine
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub release](https://img.shields.io/github/release/HarshBavaskar/natlang-vscode.svg)](https://github.com/HarshBavaskar/natlang-vscode/releases)

@@ -1,5 +1,13 @@
 <p align="center">
-  <img src="resources/logo.svg" alt="NatLang Logo" width="120" />
+  <img src="resources/logo.svg" alt="NatLang Logo" width="300" />
+</p>
+
+<h1 align="center">NatLang</h1>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.1.0-blue.svg" alt="Version" />
+  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" />
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" />
 </p>
 
 # NatLang: The Intelligence-Driven Transpilation Engine (v1.1)
@@ -56,12 +64,12 @@ Beyond simple generation, NatLang offers an advanced Agentic Pipeline powered by
 
 ```mermaid
 graph TD
-    A[VS Code Editor] <-> B[Transpiler Engine]
-    B <-> C[AI Providers Manager]
-    B <-> D[Agentic Pipeline - Java Backend]
-    C <-> E[Ollama / Local]
-    C <-> F[Claude / Gemini / GPT]
-    D <-> G[Analysis & Validation]
+    A[VS Code Editor] <--> B[Transpiler Engine]
+    B <--> C[AI Providers Manager]
+    B <--> D[Agentic Pipeline - Java Backend]
+    C <--> E[Ollama / Local]
+    C <--> F[Claude / Gemini / GPT]
+    D <--> G[Analysis & Validation]
 ```
 
 The extension is built on a modular, interface-driven architecture to ensure stability and extensibility.

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
   <g>
     <circle cx="7" cy="7" r="2"/>
@@ -6,16 +5,7 @@
     <circle cx="12" cy="17" r="2.2"/>
     <path d="M8.7 8.5 10.7 14"/>
     <path d="M15.3 8.5 13.3 14"/>
-    <animateTransform attributeName="transform" type="scale" values="0.98 0.98;1.08 1.08;0.98 0.98" dur="1.8s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.8;1;0.8" dur="1.2s" repeatCount="indefinite"/>
+    <animateTransform attributeName="transform" type="scale" values="0.97 0.97;1.08 1.08;0.97 0.97" dur="1.65s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.78;1;0.78" dur="1.1s" repeatCount="indefinite"/>
   </g>
-=======
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-  <circle cx="7" cy="7" r="2"/>
-  <circle cx="17" cy="7" r="2"/>
-  <circle cx="12" cy="17" r="2.2"/>
-  <path d="M8.7 8.5 10.7 14"/>
-  <path d="M15.3 8.5 13.3 14"/>
-  <animateTransform attributeName="transform" type="scale" values="1 1;1.03 1.03;1 1" dur="2s" repeatCount="indefinite"/>
->>>>>>> 3e3ff339c45263dfaee053d34b364743e20ca984
 </svg>

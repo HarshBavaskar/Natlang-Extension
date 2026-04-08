@@ -5,74 +5,26 @@ import { TranspilerEngine } from './TranspilerEngine';
 import { StatusBarManager } from './StatusBarManager';
 import { NatLangCodeLensProvider } from './CodeLensProvider';
 import { SidePanelProvider } from './SidePanelProvider';
+import { DeterministicCompiler, SupportedDeterministicLanguage } from './deterministic/DeterministicCompiler';
+import { runDeterministicBenchmark, runDeterministicSelfTest } from './deterministic/CompilerSelfTest';
+import { BaselineManager } from './deterministic/BaselineManager';
+import { AgenticBackendClient, DictionaryEntry } from './AgenticBackendClient';
+import { LiveGenerationManager } from './LiveGenerationManager';
+import { PolicyEngine } from './policy/PolicyEngine';
+import { TransactionManager } from './transactions/TransactionManager';
+import { MigrationFactory, MigrationPack } from './migrations/MigrationFactory';
+import { PluginEngine } from './plugins/PluginEngine';
+import { OwnershipGuard } from './governance/OwnershipGuard';
+import { GitHookInstaller } from './automation/GitHookInstaller';
+import {
+  applyDictionaryToPseudocode,
+  buildHeuristicEntries,
+  getDictionaryLearningPrompt,
+  getPairDictionaryLearningPrompt,
+  parseDictionaryEntries
+} from './deterministic/DictionaryLearner';
 
-const STARTER_TEMPLATE = `# NatLang — Write logic. Get code.
-# Press Ctrl+Shift+G on any block to generate.
-# Change language anytime from the status bar.
-# ──────────────────────────────────────────────
-
-# BLOCK 1 — Basic function (works in any language)
-define a function called greet that takes a name:
-    if name is empty:
-        return "Hello, stranger!"
-    return "Hello, " + name + "!"
-
-call greet with "World" and print the result
-
----
-
-# BLOCK 2 — Data processing (works in any language)
-create a list of numbers from 1 to 20
-filter the list to keep only even numbers
-sort it in descending order
-print each number with its index
-
----
-
-# BLOCK 3 — OOP with Java (set language to Java before generating this block)
-# Demonstrates: Encapsulation, Inheritance, Polymorphism, Abstraction
-
-create an abstract class called Animal:
-    it has a private field called name of type String
-    it has a private field called sound of type String
-    constructor takes name and sound and sets both fields
-    public getter for name
-    public getter for sound
-    define an abstract method called speak that returns a String
-    override toString to return the animal's name and sound
-
-create a class called Dog that inherits from Animal:
-    it has a private field called breed of type String
-    constructor takes name and breed, calls super with name and "Woof", sets breed
-    public getter for breed
-    override speak to return name + " says: Woof! I am a " + breed
-    override toString to include breed alongside the parent toString
-
-create a class called Cat that inherits from Animal:
-    it has a private field called isIndoor of type boolean
-    constructor takes name and isIndoor, calls super with name and "Meow", sets isIndoor
-    override speak to return name + " says: Meow!" and if isIndoor add " (indoor cat)"
-    override toString to include indoor status
-
-create an interface called Trainable:
-    define a method called train that takes a command of type String and returns boolean
-    define a method called getTrainingLevel that returns int
-
-make Dog implement Trainable:
-    it has a private field called trainingLevel of type int starting at 0
-    train method: if command is not empty increment trainingLevel and return true, else return false
-    getTrainingLevel returns trainingLevel
-
-in the main method:
-    create a list of Animal called animals
-    add a new Dog with name "Rex" and breed "Labrador"
-    add a new Cat with name "Whiskers" and isIndoor true
-    add a new Dog with name "Buddy" and breed "Poodle"
-    for each animal in the list: call speak and print the result
-    print a blank line
-    for each animal that is an instance of Trainable:
-        cast it to Trainable and train it with "sit"
-        print the animal name + " training level: " + getTrainingLevel`;
+const STARTER_TEMPLATE = '';
 
 export function activate(context: vscode.ExtensionContext) {
   const engine = new TranspilerEngine(context);
@@ -92,6 +44,8 @@ export function activate(context: vscode.ExtensionContext) {
       const lang = newConfig.get('defaultLanguage') as string || 'Python';
       const prov = newConfig.get('aiProvider') as string || 'ollama';
       statusBar.setIdle(lang, prov);
+      void liveGenerationManager.refreshActivePreview(false);
+      sidePanel.postLivePreviewState(liveGenerationManager.isEnabled(), liveGenerationManager.getCurrentLanguage());
     }
   }));
 
@@ -103,6 +57,176 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register all commands
   const disposables: vscode.Disposable[] = [];
+  const deterministicCompiler = new DeterministicCompiler();
+  const policyEngine = new PolicyEngine();
+  const transactionManager = new TransactionManager(context);
+  const migrationFactory = new MigrationFactory();
+  const pluginEngine = new PluginEngine();
+  const ownershipGuard = new OwnershipGuard();
+  const hookInstaller = new GitHookInstaller();
+  const baselineManager = new BaselineManager();
+  const liveGenerationManager = new LiveGenerationManager(engine);
+  const pipelineOutput = vscode.window.createOutputChannel('NatLang Deterministic Pipeline');
+  context.subscriptions.push(pipelineOutput);
+  let dictionaryCache: DictionaryEntry[] = (context.globalState.get<DictionaryEntry[]>('natlang.dictionaryEntries')) || [];
+
+  if (transactionManager.hasRecoverableTransaction()) {
+    vscode.window
+      .showWarningMessage(
+        `NatLang recovered an unfinished transaction. ${transactionManager.describeActive()}`,
+        'Rollback Now',
+        'Keep'
+      )
+      .then(async (choice) => {
+        if (choice === 'Rollback Now' && transactionManager.hasActiveTransaction()) {
+          await transactionManager.rollback();
+          vscode.window.showInformationMessage('Recovered transaction rolled back.');
+        }
+      });
+  }
+
+  const vscodeLangToNatLang: Record<string, string> = {
+    'python': 'Python',
+    'javascript': 'JavaScript',
+    'typescript': 'TypeScript',
+    'java': 'Java',
+    'c': 'C',
+    'cpp': 'C++',
+    'csharp': 'C#',
+    'go': 'Go',
+    'rust': 'Rust',
+    'swift': 'Swift',
+    'kotlin': 'Kotlin',
+    'ruby': 'Ruby',
+    'php': 'PHP',
+    'scala': 'Scala',
+    'r': 'R',
+    'dart': 'Dart',
+    'lua': 'Lua',
+    'shellscript': 'Bash',
+    'powershell': 'PowerShell',
+    'sql': 'SQL',
+    'html': 'HTML',
+    'css': 'CSS',
+    'javascriptreact': 'React JSX',
+    'typescriptreact': 'React JSX',
+    'vue': 'Vue'
+  };
+
+  const deterministicLanguages: SupportedDeterministicLanguage[] = ['Python', 'JavaScript', 'TypeScript'];
+
+  const getBackendClient = () => {
+    const backendBaseUrl = (vscode.workspace.getConfiguration('natlang').get('backendBaseUrl') as string) || 'http://localhost:9001';
+    return new AgenticBackendClient(backendBaseUrl);
+  };
+
+  const collectCorpus = async (): Promise<string> => {
+    const include = '**/*.{nl,md,txt,py,js,ts,java,cpp,c,cs,go,rs,rb,php,sql}';
+    const exclude = '**/{node_modules,dist,target,out,.git}/**';
+    const uris = await vscode.workspace.findFiles(include, exclude, 120);
+    const chunks: string[] = [];
+
+    for (const uri of uris) {
+      try {
+        const raw = await vscode.workspace.fs.readFile(uri);
+        const text = Buffer.from(raw).toString('utf8').slice(0, 3500);
+        if (text.trim()) {
+          chunks.push(text);
+        }
+      } catch {
+        // Ignore unreadable files.
+      }
+    }
+
+    return chunks.join('\n');
+  };
+
+  const mergeDictionaryEntries = (entries: DictionaryEntry[]): DictionaryEntry[] => {
+    const map = new Map<string, DictionaryEntry>();
+    for (const item of entries) {
+      const key = (item.term || '').trim().toLowerCase();
+      const canonical = (item.canonical || '').trim().toLowerCase();
+      if (!key || !canonical) {
+        continue;
+      }
+
+      const next: DictionaryEntry = {
+        term: key,
+        canonical,
+        confidence: item.confidence ?? 0.7,
+        source: item.source || 'dictionary-learn'
+      };
+      const prev = map.get(key);
+      if (!prev || (next.confidence || 0) >= (prev.confidence || 0)) {
+        map.set(key, next);
+      }
+    }
+    return [...map.values()];
+  };
+
+  const upsertDictionaryEntries = async (newEntries: DictionaryEntry[], source: string): Promise<number> => {
+    if (newEntries.length === 0) {
+      return 0;
+    }
+
+    const withSource = newEntries.map((entry) => ({
+      ...entry,
+      source: entry.source || source
+    }));
+
+    const merged = mergeDictionaryEntries([...(dictionaryCache || []), ...withSource]);
+    dictionaryCache = merged;
+    await context.globalState.update('natlang.dictionaryEntries', merged);
+
+    try {
+      const client = getBackendClient();
+      await client.ingestDictionary(withSource);
+    } catch {
+      // Keep local cache even if backend ingest fails.
+    }
+
+    return withSource.length;
+  };
+
+  const resolveSourceRange = (editor: vscode.TextEditor, args?: unknown): vscode.Range => {
+    if (args && typeof args === 'object' && args !== null && 'startLine' in (args as any) && 'endLine' in (args as any)) {
+      const { startLine, endLine } = args as any;
+      return new vscode.Range(startLine, 0, endLine, 1000);
+    }
+
+    if (!editor.selection.isEmpty) {
+      return new vscode.Range(editor.selection.start, editor.selection.end);
+    }
+
+    if (editor.document.languageId === 'natlang') {
+      const position = editor.selection.active;
+      const text = editor.document.getText();
+      const lines = text.split('\n');
+      let startLine = 0;
+      let endLine = position.line;
+      let inBlock = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line === '---') {
+          inBlock = false;
+          continue;
+        }
+        if (line && !inBlock) {
+          startLine = i;
+          inBlock = true;
+        }
+        if (inBlock && i >= position.line) {
+          endLine = i;
+          break;
+        }
+      }
+
+      return new vscode.Range(startLine, 0, endLine, 1000);
+    }
+
+    return editor.document.lineAt(editor.selection.active.line).range;
+  };
 
   // natlang.generate
   disposables.push(vscode.commands.registerCommand('natlang.generate', async (args) => {
@@ -148,35 +272,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     const pseudocode = editor.document.getText(range);
     
-    // Map VS Code language IDs to NatLang display names
-    const vscodeLangToNatLang: Record<string, string> = {
-      'python': 'Python',
-      'javascript': 'JavaScript',
-      'typescript': 'TypeScript',
-      'java': 'Java',
-      'c': 'C',
-      'cpp': 'C++',
-      'csharp': 'C#',
-      'go': 'Go',
-      'rust': 'Rust',
-      'swift': 'Swift',
-      'kotlin': 'Kotlin',
-      'ruby': 'Ruby',
-      'php': 'PHP',
-      'scala': 'Scala',
-      'r': 'R',
-      'dart': 'Dart',
-      'lua': 'Lua',
-      'shellscript': 'Bash',
-      'powershell': 'PowerShell',
-      'sql': 'SQL',
-      'html': 'HTML',
-      'css': 'CSS',
-      'javascriptreact': 'React JSX',
-      'typescriptreact': 'React JSX',
-      'vue': 'Vue'
-    };
-
     const languages = Object.values(vscodeLangToNatLang);
     const config = vscode.workspace.getConfiguration('natlang');
     const defaultLang = config.get('defaultLanguage') as string;
@@ -204,40 +299,33 @@ export function activate(context: vscode.ExtensionContext) {
         // No longer waiting for side panel if user doesn't want it, 
         // but we keep it updated if it is open.
         
-        let currentRange = range;
-        let streamedCode = "";
-        let firstToken = true;
+        const code = await engine.generate(pseudocode, language, fileName, () => {});
 
-        const code = await engine.generate(pseudocode, language, fileName, async (token) => {
-          // Live Typing into the editor
-          if (firstToken) {
-            // On the very first token, clear the existing pseudocode
-            await editor.edit(editBuilder => {
-                editBuilder.replace(range, "");
-            }, { undoStopBefore: true, undoStopAfter: false });
-            firstToken = false;
-            currentRange = new vscode.Range(range.start, range.start);
-          }
-
-          streamedCode += token;
-          
-          await editor.edit(editBuilder => {
-              editBuilder.insert(currentRange.end, token);
-          }, { undoStopBefore: false, undoStopAfter: false });
-
-          // Update the range to the new end position
-          const lines = token.split('\n');
-          const lastLineLength = lines[lines.length - 1].length;
-          let newEndLine = currentRange.end.line + lines.length - 1;
-          let newEndCharacter = (lines.length > 1 ? 0 : currentRange.end.character) + lastLineLength;
-          
-          currentRange = new vscode.Range(range.start, new vscode.Position(newEndLine, newEndCharacter));
-        });
+        if (!code.trim()) {
+          throw new Error('NatLang produced empty output.');
+        }
 
         // REPLACE CODE IN EDITOR
         await editor.edit(editBuilder => {
           editBuilder.replace(range, code);
         });
+
+        const autoLearn = (vscode.workspace.getConfiguration('natlang').get('autoLearnDictionaryFromGeneration') as boolean) ?? true;
+        if (autoLearn) {
+          void (async () => {
+            try {
+              const provider = await engine.getProvider();
+              const pairPrompt = getPairDictionaryLearningPrompt(pseudocode, code, language);
+              const raw = await provider.generate(pairPrompt.system, pairPrompt.user, () => {});
+              const learned = parseDictionaryEntries(raw).map((entry) => ({
+                ...entry,
+                source: 'ai-generation-learn'
+              }));
+              await upsertDictionaryEntries(learned, 'ai-generation-learn');
+            } catch (learnError) {
+            }
+          })();
+        }
 
       statusBar.setSuccess();
       codeLensProvider.refreshCodeLenses();
@@ -274,6 +362,17 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
     }
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.toggleLiveGeneration', async () => {
+    let editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.languageId !== 'natlang') {
+      await vscode.commands.executeCommand('natlang.newFile');
+      editor = vscode.window.activeTextEditor;
+    }
+
+    await liveGenerationManager.toggle();
+    sidePanel.postLivePreviewState(liveGenerationManager.isEnabled(), liveGenerationManager.getCurrentLanguage());
   }));
 
   // Placeholder commands
@@ -407,7 +506,508 @@ export function activate(context: vscode.ExtensionContext) {
     }
   }));
 
-  context.subscriptions.push(...disposables, viewProvider, codeLensReg, statusBar);
+  disposables.push(vscode.commands.registerCommand('natlang.openPolicyFile', async () => {
+    try {
+      await policyEngine.openOrCreatePolicyFile();
+    } catch (error) {
+      vscode.window.showErrorMessage((error as Error).message || 'Failed to open policy file.');
+    }
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.validateCurrentFilePolicy', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      vscode.window.showErrorMessage('Open a file first.');
+      return;
+    }
+
+    const evaluation = await policyEngine.evaluateDetailed(editor.document.getText());
+    if (evaluation.warnings.length > 0) {
+      pipelineOutput.clear();
+      pipelineOutput.show(true);
+      for (const warning of evaluation.warnings) {
+        pipelineOutput.appendLine(`Policy warning: ${warning}`);
+      }
+    }
+
+    if (evaluation.violations.length === 0) {
+      vscode.window.showInformationMessage('Policy check passed. No violations found.');
+      return;
+    }
+
+    pipelineOutput.show(true);
+    pipelineOutput.appendLine('Policy violations:');
+    for (const violation of evaluation.violations) {
+      pipelineOutput.appendLine(`- [${violation.rule}] ${violation.message}`);
+    }
+    if (evaluation.mode === 'warn') {
+      vscode.window.showWarningMessage(`Policy violations found (${evaluation.violations.length}), mode=warn.`);
+    } else {
+      vscode.window.showErrorMessage(`Policy check failed with ${evaluation.violations.length} violation(s).`);
+    }
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.beginTransaction', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      vscode.window.showErrorMessage('Open a file first.');
+      return;
+    }
+
+    const started = transactionManager.begin([editor.document.uri]);
+    await transactionManager.captureBefore(editor.document.uri);
+    vscode.window.showInformationMessage(`Started ${started}.`);
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.rollbackTransaction', async () => {
+    if (!transactionManager.hasActiveTransaction()) {
+      vscode.window.showInformationMessage('No active transaction to rollback.');
+      return;
+    }
+
+    await transactionManager.rollback();
+    vscode.window.showInformationMessage('Transaction rolled back.');
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.commitTransaction', () => {
+    if (!transactionManager.hasActiveTransaction()) {
+      vscode.window.showInformationMessage('No active transaction to commit.');
+      return;
+    }
+
+    transactionManager.commit();
+    vscode.window.showInformationMessage('Transaction committed.');
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.compileDeterministic', async (args) => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      vscode.window.showErrorMessage('Open a file first.');
+      return;
+    }
+
+    const selectedLanguage = await vscode.window.showQuickPick(deterministicLanguages, {
+      placeHolder: 'Select deterministic compiler target language'
+    });
+
+    if (!selectedLanguage) {
+      return;
+    }
+
+    if (!deterministicLanguages.includes(selectedLanguage as SupportedDeterministicLanguage)) {
+      vscode.window.showErrorMessage('Unsupported deterministic target language.');
+      return;
+    }
+
+    const range = resolveSourceRange(editor, args);
+    const pseudocode = editor.document.getText(range);
+
+    try {
+      statusBar.setGenerating(`${selectedLanguage} deterministic`);
+      pipelineOutput.clear();
+      pipelineOutput.show(true);
+
+      const dictionaryReady = dictionaryCache.length > 0
+        ? dictionaryCache
+        : (context.globalState.get<DictionaryEntry[]>('natlang.dictionaryEntries') || []);
+      const normalizedPseudocode = applyDictionaryToPseudocode(pseudocode, dictionaryReady);
+
+      const pre = await pluginEngine.applyPreParse(normalizedPseudocode);
+      const compileResult = deterministicCompiler.compile(pre.output, selectedLanguage as SupportedDeterministicLanguage);
+      const post = await pluginEngine.applyPostEmit(compileResult.code);
+      compileResult.code = post.output;
+      if (pre.applied.length > 0 || post.applied.length > 0) {
+        pipelineOutput.appendLine(`Plugin transforms: ${[...pre.applied, ...post.applied].join(', ')}`);
+      }
+      const evaluation = await policyEngine.evaluateDetailed(compileResult.code);
+      for (const warning of evaluation.warnings) {
+        pipelineOutput.appendLine(`Policy warning: ${warning}`);
+      }
+
+      if (evaluation.violations.length > 0) {
+        for (const violation of evaluation.violations) {
+          pipelineOutput.appendLine(`Policy violation [${violation.rule}]: ${violation.message}`);
+        }
+        if (evaluation.mode === 'enforce') {
+          statusBar.setError();
+          vscode.window.showErrorMessage('Deterministic compile blocked by policy rules.');
+          return;
+        }
+        vscode.window.showWarningMessage('Policy violations detected, but policy mode is warn. Continuing.');
+      }
+
+      if (compileResult.warnings.length > 0) {
+        for (const warning of compileResult.warnings) {
+          pipelineOutput.appendLine(`Warning: ${warning}`);
+        }
+
+        const allowPartial = (vscode.workspace.getConfiguration('natlang').get('deterministicAllowPartial') as boolean) || false;
+        if (!allowPartial) {
+          statusBar.setError();
+          vscode.window.showErrorMessage(
+            `Deterministic compile blocked: ${compileResult.warnings.length} unsupported line(s). Fix pseudocode or enable natlang.deterministicAllowPartial.`
+          );
+          return;
+        }
+      }
+
+      const doc = editor.document;
+      if (doc.isDirty) {
+        const saved = await doc.save();
+        if (!saved) {
+          throw new Error('Save the file before applying a transactional write.');
+        }
+      }
+
+      const start = doc.offsetAt(range.start);
+      const end = doc.offsetAt(range.end);
+      const currentText = doc.getText();
+      const nextText = `${currentText.slice(0, start)}${compileResult.code}${currentText.slice(end)}`;
+
+      const guard = await ownershipGuard.enforce([doc.uri]);
+      if (!guard.allowed) {
+        throw new Error(guard.reason || 'Ownership guard blocked the change.');
+      }
+
+      transactionManager.begin([doc.uri]);
+      try {
+        await transactionManager.applyAtomic([{ uri: doc.uri, content: nextText }]);
+        transactionManager.commit();
+      } catch (error) {
+        if (transactionManager.hasActiveTransaction()) {
+          await transactionManager.rollback();
+        }
+        throw error;
+      }
+
+      const refreshed = await vscode.workspace.openTextDocument(doc.uri);
+      await vscode.window.showTextDocument(refreshed, editor.viewColumn);
+      statusBar.setSuccess();
+      vscode.window.showInformationMessage('Deterministic compile applied successfully.');
+    } catch (error) {
+      statusBar.setError();
+      pipelineOutput.appendLine(`Compile failed: ${(error as Error).message || String(error)}`);
+      vscode.window.showErrorMessage(`Deterministic compile failed: ${(error as Error).message || 'Unknown error'}`);
+    }
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.scrapeDictionary', async () => {
+    try {
+      pipelineOutput.clear();
+      pipelineOutput.show(true);
+      pipelineOutput.appendLine('Dictionary scrape started...');
+
+      const corpus = await collectCorpus();
+      const provider = await engine.getProvider();
+      const prompt = getDictionaryLearningPrompt(corpus);
+      let aiEntries: DictionaryEntry[] = [];
+
+      try {
+        const raw = await provider.generate(prompt.system, prompt.user, () => {});
+        aiEntries = parseDictionaryEntries(raw);
+      } catch (error) {
+        pipelineOutput.appendLine(`AI scrape failed, using heuristics only: ${(error as Error).message || String(error)}`);
+      }
+
+      const merged = [...buildHeuristicEntries(), ...aiEntries];
+      const deduped = mergeDictionaryEntries(merged.map((item) => ({
+        term: item.term.trim().toLowerCase(),
+        canonical: item.canonical.trim().toLowerCase(),
+        confidence: item.confidence ?? 0.7,
+        source: item.source || 'dictionary-scrape'
+      })));
+
+      const count = await upsertDictionaryEntries(deduped, 'dictionary-scrape');
+      pipelineOutput.appendLine(`Dictionary upserted with ${count} entries (backend + local cache best effort).`);
+
+      pipelineOutput.appendLine(`Dictionary scrape completed. Entries: ${deduped.length}`);
+      vscode.window.showInformationMessage(`NatLang dictionary updated (${deduped.length} entries).`);
+    } catch (error) {
+      vscode.window.showErrorMessage(`Dictionary scrape failed: ${(error as Error).message || 'Unknown error'}`);
+    }
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.refreshDictionaryFromDb', async () => {
+    try {
+      const client = getBackendClient();
+      const entries = await client.getDictionary();
+      dictionaryCache = entries;
+      await context.globalState.update('natlang.dictionaryEntries', entries);
+      vscode.window.showInformationMessage(`Loaded ${entries.length} dictionary entries from backend.`);
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to refresh dictionary: ${(error as Error).message || 'Unknown error'}`);
+    }
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.runMigrationPack', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      vscode.window.showErrorMessage('Open a file first.');
+      return;
+    }
+
+    const pack = await vscode.window.showQuickPick(
+      ['javascript-modernize', 'typescript-modernize', 'java-modernize', 'python-modernize'],
+      { placeHolder: 'Select migration pack' }
+    );
+
+    if (!pack) {
+      return;
+    }
+
+    const doc = editor.document;
+    if (doc.isDirty) {
+      const saved = await doc.save();
+      if (!saved) {
+        vscode.window.showErrorMessage('Save the file before running a migration pack.');
+        return;
+      }
+    }
+
+    const currentCode = doc.getText();
+    const migration = migrationFactory.run(pack as MigrationPack, currentCode);
+
+    if (migration.applied.length === 0) {
+      vscode.window.showInformationMessage('Migration completed with no changes needed.');
+      return;
+    }
+
+    const confirmation = await vscode.window.showQuickPick(['Apply', 'Cancel'], {
+      placeHolder: `Risk ${migration.riskLevel.toUpperCase()} (${migration.riskScore}) with ${migration.changedLines} changed lines`
+    });
+    if (confirmation !== 'Apply') {
+      vscode.window.showInformationMessage('Migration cancelled.');
+      return;
+    }
+
+    const evaluation = await policyEngine.evaluateDetailed(migration.code);
+    for (const warning of evaluation.warnings) {
+      pipelineOutput.appendLine(`Policy warning: ${warning}`);
+    }
+    if (evaluation.violations.length > 0) {
+      pipelineOutput.clear();
+      pipelineOutput.show(true);
+      for (const violation of evaluation.violations) {
+        pipelineOutput.appendLine(`Policy violation [${violation.rule}]: ${violation.message}`);
+      }
+      if (evaluation.mode === 'enforce') {
+        vscode.window.showErrorMessage('Migration blocked by policy rules.');
+        return;
+      }
+      vscode.window.showWarningMessage('Policy violations detected, but policy mode is warn. Continuing migration.');
+    }
+
+    const guard = await ownershipGuard.enforce([doc.uri]);
+    if (!guard.allowed) {
+      vscode.window.showErrorMessage(guard.reason || 'Ownership guard blocked migration.');
+      return;
+    }
+
+    transactionManager.begin([doc.uri]);
+    try {
+      await transactionManager.applyAtomic([{ uri: doc.uri, content: migration.code }]);
+      transactionManager.commit();
+    } catch (error) {
+      if (transactionManager.hasActiveTransaction()) {
+        await transactionManager.rollback();
+      }
+      throw error;
+    }
+
+    const refreshed = await vscode.workspace.openTextDocument(doc.uri);
+    await vscode.window.showTextDocument(refreshed, editor.viewColumn);
+    pipelineOutput.clear();
+    pipelineOutput.show(true);
+    pipelineOutput.appendLine(`Migration pack: ${pack}`);
+    pipelineOutput.appendLine(`Risk: ${migration.riskLevel} (${migration.riskScore}), changed lines: ${migration.changedLines}`);
+    for (const item of migration.applied) {
+      pipelineOutput.appendLine(`- ${item}`);
+    }
+
+    vscode.window.showInformationMessage(`Migration applied with ${migration.applied.length} change(s).`);
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.recoverTransaction', async () => {
+    if (!transactionManager.hasActiveTransaction()) {
+      vscode.window.showInformationMessage('No active transaction to recover.');
+      return;
+    }
+
+    const pick = await vscode.window.showQuickPick(['Rollback', 'Commit', 'Cancel'], {
+      placeHolder: `${transactionManager.describeActive()}`
+    });
+
+    if (pick === 'Rollback') {
+      await transactionManager.rollback();
+      vscode.window.showInformationMessage('Transaction recovered by rollback.');
+      return;
+    }
+
+    if (pick === 'Commit') {
+      transactionManager.commit();
+      vscode.window.showInformationMessage('Transaction recovered by commit.');
+    }
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.runDeterministicSelfTest', async () => {
+    const result = runDeterministicSelfTest();
+    pipelineOutput.clear();
+    pipelineOutput.show(true);
+    pipelineOutput.appendLine(`Deterministic self-test: ${result.passed} passed, ${result.failed} failed`);
+    for (const line of result.details) {
+      pipelineOutput.appendLine(line);
+    }
+
+    if (result.failed > 0) {
+      vscode.window.showErrorMessage(`Deterministic self-test failed (${result.failed}). See output.`);
+    } else {
+      vscode.window.showInformationMessage('Deterministic self-test passed.');
+    }
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.showDeterministicAstDiff', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      vscode.window.showErrorMessage('Open a file first.');
+      return;
+    }
+
+    const range = resolveSourceRange(editor);
+    const source = editor.document.getText(range);
+    const ast = deterministicCompiler.parseToAst(source);
+    const compileResult = deterministicCompiler.compile(source, 'TypeScript');
+
+    pipelineOutput.clear();
+    pipelineOutput.show(true);
+    pipelineOutput.appendLine('--- Source AST ---');
+    pipelineOutput.appendLine(JSON.stringify(ast.ast, null, 2));
+    pipelineOutput.appendLine('--- Transformations ---');
+    for (const t of compileResult.transformations) {
+      pipelineOutput.appendLine(`- ${t}`);
+    }
+    pipelineOutput.appendLine('--- Output Preview ---');
+    pipelineOutput.appendLine(compileResult.code);
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.previewMigrationPack', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      vscode.window.showErrorMessage('Open a file first.');
+      return;
+    }
+
+    const pack = await vscode.window.showQuickPick(
+      ['javascript-modernize', 'typescript-modernize', 'java-modernize', 'python-modernize'],
+      { placeHolder: 'Select migration pack for preview' }
+    );
+    if (!pack) {
+      return;
+    }
+
+    const preview = migrationFactory.preview(pack as MigrationPack, editor.document.getText());
+    pipelineOutput.clear();
+    pipelineOutput.show(true);
+    pipelineOutput.appendLine(`Preview pack: ${pack}`);
+    pipelineOutput.appendLine(`Risk: ${preview.riskLevel} (${preview.riskScore}), changed lines: ${preview.changedLines}`);
+    for (const line of preview.applied) {
+      pipelineOutput.appendLine(`- ${line}`);
+    }
+    pipelineOutput.appendLine('--- Preview Output ---');
+    pipelineOutput.appendLine(preview.code);
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.lockPolicyPack', async () => {
+    await policyEngine.updatePolicyLock();
+    vscode.window.showInformationMessage('Policy pack lock file updated.');
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.verifyPolicyPack', async () => {
+    const status = await policyEngine.verifyPolicyLock();
+    if (!status.lockExists) {
+      vscode.window.showWarningMessage('No policy lock found. Run NatLang: Lock Policy Pack first.');
+      return;
+    }
+    if (status.valid) {
+      vscode.window.showInformationMessage('Policy lock verification passed.');
+      return;
+    }
+    vscode.window.showErrorMessage(`Policy lock mismatch. Expected ${status.expectedHash}, got ${status.actualHash}.`);
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.switchPolicyProfile', async () => {
+    const profiles = await policyEngine.listProfiles();
+    const selected = await vscode.window.showQuickPick([...profiles, 'Create New Profile...'], {
+      placeHolder: 'Select active policy profile'
+    });
+    if (!selected) {
+      return;
+    }
+
+    if (selected === 'Create New Profile...') {
+      const name = await vscode.window.showInputBox({ prompt: 'Enter new policy profile name' });
+      if (!name) {
+        return;
+      }
+      await policyEngine.createProfile(name);
+      await policyEngine.setActiveProfile(name);
+      vscode.window.showInformationMessage(`Created and switched to profile '${name}'.`);
+      return;
+    }
+
+    await policyEngine.setActiveProfile(selected);
+    vscode.window.showInformationMessage(`Switched policy profile to '${selected}'.`);
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.installPreCommitPolicyHook', async () => {
+    const paths = await policyEngine.getPolicyPathsForScripts();
+    await hookInstaller.installPreCommitHook(paths.policyPath);
+    vscode.window.showInformationMessage('Installed pre-commit policy hook.');
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.scaffoldRulePlugin', async () => {
+    const uri = await pluginEngine.scaffoldSamplePlugin();
+    const doc = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(doc);
+    vscode.window.showInformationMessage('Sample plugin scaffolded.');
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.configureOwnerApprovals', async () => {
+    await ownershipGuard.openOrCreateConfig();
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.runDeterministicBenchmark', async () => {
+    const benchmark = runDeterministicBenchmark();
+    pipelineOutput.clear();
+    pipelineOutput.show(true);
+    pipelineOutput.appendLine(`Benchmark: ${benchmark.cases} case(s), ${benchmark.passed} passed, ${benchmark.failed} failed`);
+    pipelineOutput.appendLine(`Duration: ${benchmark.durationMs}ms, avg ${benchmark.avgMsPerCase.toFixed(2)}ms/case`);
+    for (const line of benchmark.details) {
+      pipelineOutput.appendLine(line);
+    }
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.captureDeterministicBaseline', async () => {
+    const result = await baselineManager.captureBaseline();
+    vscode.window.showInformationMessage(`Baseline captured with ${result.entries} entries at ${result.path}.`);
+  }));
+
+  disposables.push(vscode.commands.registerCommand('natlang.detectDeterministicDrift', async () => {
+    const drift = await baselineManager.detectDrift();
+    pipelineOutput.clear();
+    pipelineOutput.show(true);
+    pipelineOutput.appendLine(`Deterministic drift count: ${drift.driftCount}`);
+    for (const line of drift.details) {
+      pipelineOutput.appendLine(line);
+    }
+
+    if (drift.driftCount > 0) {
+      vscode.window.showWarningMessage(`Deterministic drift detected (${drift.driftCount}).`);
+    } else {
+      vscode.window.showInformationMessage('No deterministic drift detected.');
+    }
+  }));
+
+  context.subscriptions.push(...disposables, viewProvider, codeLensReg, statusBar, liveGenerationManager);
 }
 
 export function deactivate() { }

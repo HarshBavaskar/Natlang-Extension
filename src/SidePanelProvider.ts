@@ -8,6 +8,8 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
   private readonly _extensionUri: vscode.Uri;
   private _lastAgenticCode: string = '';
   private _selectionDisposables: vscode.Disposable[] = [];
+  private _livePreviewEnabled: boolean = false;
+  private _livePreviewLanguage: string = 'TypeScript';
 
 
   constructor(context: vscode.ExtensionContext, engine: TranspilerEngine) {
@@ -47,9 +49,14 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
           break;
         case 'changeLanguage':
           vscode.workspace.getConfiguration('natlang').update('defaultLanguage', data.language, vscode.ConfigurationTarget.Global);
+          this._livePreviewLanguage = data.language;
+          this.postLivePreviewState(this._livePreviewEnabled, this._livePreviewLanguage);
           break;
         case 'changeProvider':
           vscode.workspace.getConfiguration('natlang').update('aiProvider', data.provider, vscode.ConfigurationTarget.Global);
+          break;
+        case 'toggleLivePreview':
+          vscode.commands.executeCommand('natlang.toggleLiveGeneration');
           break;
         case 'toggleDictionary':
           vscode.workspace.getConfiguration('natlang').update('dictionaryMode', data.enabled, vscode.ConfigurationTarget.Global);
@@ -93,6 +100,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
 
     this.postHistory();
     this.postSelectionState();
+    this.postLivePreviewState(this._livePreviewEnabled, this._livePreviewLanguage);
     void this.refreshProviderRuntimeState();
 
     this._selectionDisposables.forEach(disposable => disposable.dispose());
@@ -110,6 +118,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     setTimeout(() => {
       this.postHistory();
       this.postSelectionState();
+      this.postLivePreviewState(this._livePreviewEnabled, this._livePreviewLanguage);
       void this.refreshProviderRuntimeState();
     }, 300);
   }
@@ -119,9 +128,14 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     const config = vscode.workspace.getConfiguration('natlang');
     const defaultLanguage = config.get('defaultLanguage') as string || 'TypeScript';
     const aiProvider = config.get('aiProvider') as string || 'ollama';
+    this._livePreviewLanguage = defaultLanguage;
 
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'panel.css'));
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'panel.js'));
+    const settingsIconUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'resources', 'icons', 'settings-animated.svg'));
+    const refreshIconUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'resources', 'icons', 'refresh-animated.svg'));
+    const insertIconUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'resources', 'icons', 'insert-animated.svg'));
+    const chevronIconUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'resources', 'icons', 'chevron-animated.svg'));
     const hljsCss = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default-dark.min.css';
     const hljsJs = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js';
 
@@ -141,14 +155,16 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     <div class="brand-header">
       <span class="nat">NAT</span><span class="lang">LANG</span>
     </div>
-    <button id="settings-toggle" class="settings-icon-btn" title="Settings">⚙</button>
+    <button id="settings-toggle" class="settings-icon-btn" title="Settings">
+      <img src="${settingsIconUri}" alt="Settings" class="icon-svg" />
+    </button>
   </div>
 
   <div id="settings-panel" class="settings-panel hidden">
     <div class="collapsible-section" data-section="models">
       <button class="collapse-toggle" data-target="models-panel">
         <span>AI Models</span>
-        <span class="chevron">▸</span>
+        <img src="${chevronIconUri}" alt="Expand" class="chevron-icon" />
       </button>
       <div id="models-panel" class="collapse-panel">
         <div class="model-section">
@@ -167,9 +183,11 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       <div class="provider-runtime-header">
         <button class="collapse-toggle provider-runtime-toggle" data-target="provider-runtime-panel">
           <span>Provider Runtime</span>
-          <span class="chevron">▸</span>
+          <img src="${chevronIconUri}" alt="Expand" class="chevron-icon" />
         </button>
-        <button id="provider-runtime-refresh" class="provider-runtime-refresh" title="Refresh provider runtime">↻</button>
+        <button id="provider-runtime-refresh" class="provider-runtime-refresh" title="Refresh provider runtime">
+          <img src="${refreshIconUri}" alt="Refresh" class="icon-svg" />
+        </button>
       </div>
       <div id="provider-runtime-panel" class="collapse-panel provider-runtime-panel">
         <div id="provider-runtime-message" class="provider-runtime-message">Loading provider status...</div>
@@ -181,7 +199,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
   <div class="collapsible-section" data-section="languages">
     <button class="collapse-toggle" data-target="languages-panel">
       <span>Languages</span>
-      <span class="chevron">▸</span>
+      <img src="${chevronIconUri}" alt="Expand" class="chevron-icon" />
     </button>
     <div id="languages-panel" class="collapse-panel">
       <div class="architecture-section">
@@ -195,10 +213,26 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     </div>
   </div>
 
+  <div class="live-preview-card">
+    <div class="live-preview-header">
+      <div>
+        <div class="section-label">Live Preview</div>
+        <div id="live-preview-language" class="live-preview-language">${defaultLanguage}</div>
+      </div>
+      <label class="switch" aria-label="Toggle live preview mode">
+        <input id="live-preview-toggle" type="checkbox" />
+        <span class="switch-slider"></span>
+      </label>
+    </div>
+    <div id="live-preview-status" class="live-preview-status">Off</div>
+  </div>
+
   <div class="agentic-section">
     <div class="agentic-header">
       <label class="section-label">Agentic AI</label>
-      <button id="agentic-insert" class="icon-btn" title="Insert Agentic AI code">⤵</button>
+      <button id="agentic-insert" class="icon-btn" title="Insert Agentic AI code">
+        <img src="${insertIconUri}" alt="Insert" class="icon-svg" />
+      </button>
     </div>
     <div class="agentic-actions">
       <button class="agentic-action-btn" data-action="optimize">Optimize</button>
@@ -306,6 +340,18 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  public postLivePreviewState(enabled: boolean, language: string): void {
+    this._livePreviewEnabled = enabled;
+    this._livePreviewLanguage = language;
+    if (this._view) {
+      this._view.webview.postMessage({
+        type: 'livePreviewState',
+        enabled,
+        language
+      });
+    }
+  }
+
   public clearPanel(): void {
     if (this._view) {
       this._view.webview.postMessage({ type: 'clear' });
@@ -319,7 +365,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
 
     try {
       const config = vscode.workspace.getConfiguration('natlang');
-      const baseUrl = (config.get('backendBaseUrl') as string) || 'http://localhost:8080';
+      const baseUrl = (config.get('backendBaseUrl') as string) || 'http://localhost:9001';
       const client = new AgenticBackendClient(baseUrl);
       const runtime = await client.getProviderRuntimeStatus();
       this._view.webview.postMessage({ type: 'providerRuntime', runtime });
@@ -365,7 +411,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     }
 
     const config = vscode.workspace.getConfiguration('natlang');
-    const baseUrl = (config.get('backendBaseUrl') as string) || 'http://localhost:8080';
+    const baseUrl = (config.get('backendBaseUrl') as string) || 'http://localhost:9001';
     const language = (config.get('defaultLanguage') as string) || 'TypeScript';
     const provider = (config.get('aiProvider') as string) || 'ollama';
 

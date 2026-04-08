@@ -74,6 +74,11 @@
         "icon": "$(zap)"
       },
       {
+        "command": "natlang.toggleLiveGeneration",
+        "title": "NatLang: Toggle Live Generation Preview",
+        "icon": "$(live-share)"
+      },
+      {
         "command": "natlang.changeLanguage",
         "title": "NatLang: Change Language"
       },
@@ -89,6 +94,94 @@
         "command": "natlang.runGenerated",
         "title": "NatLang: Run Generated Code",
         "icon": "$(play)"
+      },
+      {
+        "command": "natlang.compileDeterministic",
+        "title": "NatLang: Compile Deterministic"
+      },
+      {
+        "command": "natlang.openPolicyFile",
+        "title": "NatLang: Open Policy File"
+      },
+      {
+        "command": "natlang.validateCurrentFilePolicy",
+        "title": "NatLang: Validate Current File Policy"
+      },
+      {
+        "command": "natlang.beginTransaction",
+        "title": "NatLang: Begin Transaction"
+      },
+      {
+        "command": "natlang.commitTransaction",
+        "title": "NatLang: Commit Transaction"
+      },
+      {
+        "command": "natlang.rollbackTransaction",
+        "title": "NatLang: Rollback Transaction"
+      },
+      {
+        "command": "natlang.runMigrationPack",
+        "title": "NatLang: Run Migration Pack"
+      },
+      {
+        "command": "natlang.recoverTransaction",
+        "title": "NatLang: Recover Transaction"
+      },
+      {
+        "command": "natlang.runDeterministicSelfTest",
+        "title": "NatLang: Run Deterministic Self-Test"
+      },
+      {
+        "command": "natlang.showDeterministicAstDiff",
+        "title": "NatLang: Show Deterministic AST Diff"
+      },
+      {
+        "command": "natlang.previewMigrationPack",
+        "title": "NatLang: Preview Migration Pack"
+      },
+      {
+        "command": "natlang.lockPolicyPack",
+        "title": "NatLang: Lock Policy Pack"
+      },
+      {
+        "command": "natlang.verifyPolicyPack",
+        "title": "NatLang: Verify Policy Pack"
+      },
+      {
+        "command": "natlang.switchPolicyProfile",
+        "title": "NatLang: Switch Policy Profile"
+      },
+      {
+        "command": "natlang.installPreCommitPolicyHook",
+        "title": "NatLang: Install Pre-Commit Policy Hook"
+      },
+      {
+        "command": "natlang.scaffoldRulePlugin",
+        "title": "NatLang: Scaffold Rule Plugin"
+      },
+      {
+        "command": "natlang.configureOwnerApprovals",
+        "title": "NatLang: Configure Owner Approvals"
+      },
+      {
+        "command": "natlang.runDeterministicBenchmark",
+        "title": "NatLang: Run Deterministic Benchmark"
+      },
+      {
+        "command": "natlang.captureDeterministicBaseline",
+        "title": "NatLang: Capture Deterministic Baseline"
+      },
+      {
+        "command": "natlang.detectDeterministicDrift",
+        "title": "NatLang: Detect Deterministic Drift"
+      },
+      {
+        "command": "natlang.scrapeDictionary",
+        "title": "NatLang: Scrape Dictionary (AI + Heuristics)"
+      },
+      {
+        "command": "natlang.refreshDictionaryFromDb",
+        "title": "NatLang: Refresh Dictionary From Backend"
       }
     ],
     "keybindings": [
@@ -106,7 +199,22 @@
           "when": "editorTextFocus"
         },
         {
+          "command": "natlang.toggleLiveGeneration",
+          "group": "navigation",
+          "when": "editorTextFocus"
+        },
+        {
           "command": "natlang.runGenerated",
+          "group": "navigation",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "natlang.compileDeterministic",
+          "group": "navigation",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "natlang.runMigrationPack",
           "group": "navigation",
           "when": "editorTextFocus"
         }
@@ -163,8 +271,42 @@
         },
         "natlang.backendBaseUrl": {
           "type": "string",
-          "default": "http://localhost:8080",
+          "default": "http://localhost:9001",
           "description": "Base URL for NatLang X backend Agentic AI API."
+        },
+        "natlang.deterministicAllowPartial": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow deterministic compiler to apply output even when unsupported pseudocode lines are detected."
+        },
+        "natlang.autoLearnDictionaryFromGeneration": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically learn dictionary mappings from successful AI generation pairs and store them in local cache and backend DB."
+        },
+        "natlang.liveGenerationDebounceMs": {
+          "type": "number",
+          "default": 650,
+          "minimum": 100,
+          "description": "Delay before NatLang refreshes the live generated preview after typing stops."
+        },
+        "natlang.liveGenerationContextLines": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "description": "How many surrounding pseudocode lines NatLang includes when generating each live preview line."
+        },
+        "natlang.liveGenerationMaxLineRetries": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "description": "How many times NatLang rechecks and retries a live preview line before moving on."
+        },
+        "natlang.liveGenerationMaxLinesPerStep": {
+          "type": "number",
+          "default": 4,
+          "minimum": 1,
+          "description": "Maximum number of generated lines NatLang accepts from one line-by-line generation step."
         }
       }
     }

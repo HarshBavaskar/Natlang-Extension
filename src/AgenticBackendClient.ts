@@ -31,6 +31,13 @@ export interface ProviderRuntimeStatus {
   detail: string;
 }
 
+export interface DictionaryEntry {
+  term: string;
+  canonical: string;
+  confidence?: number;
+  source?: string;
+}
+
 interface ProviderHealthStatus {
   provider: string;
   configured: boolean;
@@ -117,6 +124,73 @@ export class AgenticBackendClient {
       }
       throw error;
     }
+  }
+
+  async ingestDictionary(entries: DictionaryEntry[]): Promise<number> {
+    return this.requestJson<number>('/api/dictionary/ingest', 'POST', { entries });
+  }
+
+  async getDictionary(): Promise<DictionaryEntry[]> {
+    return this.requestJson<DictionaryEntry[]>('/api/dictionary', 'GET');
+  }
+
+  private async requestJson<T>(pathname: string, method: 'GET' | 'POST', payload?: unknown): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const target = new URL(`${this.baseUrl}${pathname}`);
+      const lib = target.protocol === 'https:' ? https : http;
+      const body = payload ? JSON.stringify(payload) : '';
+
+      const headers: Record<string, string | number> = {};
+      if (body) {
+        headers['Content-Type'] = 'application/json';
+        headers['Content-Length'] = Buffer.byteLength(body);
+      }
+
+      const req = lib.request(
+        {
+          hostname: target.hostname,
+          port: target.port || (target.protocol === 'https:' ? 443 : 80),
+          path: `${target.pathname}${target.search}`,
+          method,
+          headers
+        },
+        (res) => {
+          let raw = '';
+          res.on('data', (chunk) => {
+            raw += chunk.toString();
+          });
+          res.on('end', () => {
+            if ((res.statusCode || 500) >= 400) {
+              let detail = `${res.statusCode} ${res.statusMessage}`;
+              try {
+                const parsed = JSON.parse(raw) as { error?: string; detail?: string };
+                detail = parsed.detail || parsed.error || detail;
+              } catch {
+                // Preserve HTTP detail when body is not JSON.
+              }
+              reject(new Error(`Backend request failed: ${detail}`));
+              return;
+            }
+
+            try {
+              if (!raw.trim()) {
+                resolve(undefined as T);
+                return;
+              }
+              resolve(JSON.parse(raw) as T);
+            } catch (error) {
+              reject(new Error(`Failed to parse backend response: ${(error as Error).message}`));
+            }
+          });
+        }
+      );
+
+      req.on('error', (error) => reject(error));
+      if (body) {
+        req.write(body);
+      }
+      req.end();
+    });
   }
 
   private async getProviderRuntimeStatusFromEndpoint(pathname: string): Promise<ProviderRuntimeStatus[]> {

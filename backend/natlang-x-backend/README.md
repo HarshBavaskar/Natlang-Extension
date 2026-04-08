@@ -39,6 +39,8 @@ The backend defaults to `llama3:latest` for Ollama. If you want a different loca
 - `DELETE /api/users/{id}`
 - `POST /api/users/login`
 - `POST /api/process`
+- `POST /api/dictionary/ingest`
+- `GET /api/dictionary`
 - `GET /api/history`
 - `DELETE /api/{id}`
 - `GET /api/search`

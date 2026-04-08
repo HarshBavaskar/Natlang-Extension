@@ -22,6 +22,9 @@
     const settingsToggle = document.getElementById('settings-toggle');
     const settingsPanel = document.getElementById('settings-panel');
     const xtermBox = document.querySelector('.xterm-box');
+    const livePreviewToggle = document.getElementById('live-preview-toggle');
+    const livePreviewStatus = document.getElementById('live-preview-status');
+    const livePreviewLanguage = document.getElementById('live-preview-language');
 
     let isProcessing = false;
     let tokensReceived = 0;
@@ -42,10 +45,7 @@
                 return;
             }
             const isOpen = panel.classList.toggle('open');
-            const chevron = btn.querySelector('.chevron');
-            if (chevron) {
-                chevron.textContent = isOpen ? '▾' : '▸';
-            }
+            btn.classList.toggle('open', isOpen);
         });
     });
 
@@ -73,6 +73,13 @@
                 providerRuntimeMessage.textContent = 'Refreshing provider status...';
             }
             vscode.postMessage({ type: 'refreshProviderRuntime' });
+        });
+    }
+
+    if (livePreviewToggle) {
+        livePreviewToggle.addEventListener('change', () => {
+            vscode.postMessage({ type: 'toggleLivePreview', enabled: !!livePreviewToggle.checked });
+            updateLivePreviewUI(!!livePreviewToggle.checked, livePreviewLanguage ? livePreviewLanguage.textContent || '' : '');
         });
     }
 
@@ -152,6 +159,9 @@
                 if (providerRuntimeMessage) {
                     providerRuntimeMessage.textContent = message.message || 'Provider runtime unavailable.';
                 }
+                break;
+            case 'livePreviewState':
+                updateLivePreviewUI(!!message.enabled, message.language || '');
                 break;
             case 'error':
                 handleError(message.message);
@@ -297,6 +307,19 @@
             agenticSpace.textContent = 'Space: -';
         }
         hideAgenticSections();
+    }
+
+    function updateLivePreviewUI(enabled, language) {
+        if (livePreviewToggle) {
+            livePreviewToggle.checked = !!enabled;
+        }
+        if (livePreviewStatus) {
+            livePreviewStatus.textContent = enabled ? 'On' : 'Off';
+            livePreviewStatus.classList.toggle('enabled', !!enabled);
+        }
+        if (livePreviewLanguage && language) {
+            livePreviewLanguage.textContent = language;
+        }
     }
 
     function appendTokenOutput(text) {

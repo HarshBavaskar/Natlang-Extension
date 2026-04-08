@@ -17,6 +17,10 @@ interface HistoryEntry {
   complexity: string;
 }
 
+export interface GenerationOptions {
+  persistResult?: boolean;
+}
+
 export class TranspilerEngine {
   private context: vscode.ExtensionContext;
   private lastGeneratedCode: string = '';
@@ -74,7 +78,13 @@ export class TranspilerEngine {
     }
   }
 
-  async generate(pseudocode: string, language: string, fileName: string, onToken: (token: string) => void): Promise<string> {
+  async generate(
+    pseudocode: string,
+    language: string,
+    fileName: string,
+    onToken: (token: string) => void,
+    options: GenerationOptions = {}
+  ): Promise<string> {
     if (this.isGenerating) {
       throw new Error('ALREADY_GENERATING');
     }
@@ -152,21 +162,23 @@ export class TranspilerEngine {
             if (c) complexity = c.trim();
         } catch (e) { /* Defaults */ }
 
-        this.lastGeneratedCode = cleanedCode;
-        this.lastGeneratedLanguage = language;
+        if (options.persistResult !== false) {
+          this.lastGeneratedCode = cleanedCode;
+          this.lastGeneratedLanguage = language;
 
-        this.history.unshift({
-          timestamp: Date.now(),
-          fileName,
-          pseudocode,
-          code: cleanedCode,
-          language,
-          provider: provider.getName(),
-          topic,
-          complexity
-        });
-        if (this.history.length > 50) this.history = this.history.slice(0, 50);
-        this._saveHistory();
+          this.history.unshift({
+            timestamp: Date.now(),
+            fileName,
+            pseudocode,
+            code: cleanedCode,
+            language,
+            provider: provider.getName(),
+            topic,
+            complexity
+          });
+          if (this.history.length > 50) this.history = this.history.slice(0, 50);
+          this._saveHistory();
+        }
 
         this.isGenerating = false;
         return cleanedCode;

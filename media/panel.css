@@ -56,6 +56,25 @@ body {
   transition: transform 160ms var(--ease-fluid), background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
+.icon-svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+  color: currentColor;
+}
+
+.chevron-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.85;
+  transition: transform 180ms var(--ease-fluid), opacity 140ms ease;
+}
+
+.collapse-toggle.open .chevron-icon {
+  transform: rotate(90deg);
+  opacity: 1;
+}
+
 .settings-icon-btn:hover {
   background: var(--hover);
   transform: translateY(-1px) scale(1.03);
@@ -245,6 +264,87 @@ body {
   transition: box-shadow 220ms ease, border-color 180ms ease;
 }
 
+.live-preview-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(120, 120, 120, 0.1), rgba(120, 120, 120, 0.04));
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.live-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.live-preview-language {
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.live-preview-status {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.live-preview-status.enabled {
+  color: var(--accent);
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 46px;
+  height: 26px;
+  flex: 0 0 auto;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: rgba(128, 128, 128, 0.35);
+  border: 1px solid var(--border);
+  transition: 180ms ease;
+  border-radius: 999px;
+}
+
+.switch-slider::before {
+  content: '';
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  top: 2px;
+  background: var(--bg);
+  border-radius: 50%;
+  transition: 180ms var(--ease-fluid);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+.switch input:checked + .switch-slider {
+  background: var(--accent);
+  border-color: transparent;
+}
+
+.switch input:checked + .switch-slider::before {
+  transform: translateX(20px);
+}
+
 .agentic-section:hover {
   border-color: rgba(148, 148, 148, 0.42);
 }
@@ -292,6 +392,9 @@ body {
   width: 28px;
   height: 28px;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .provider-runtime-list {
@@ -332,6 +435,12 @@ body {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .agentic-prompt {

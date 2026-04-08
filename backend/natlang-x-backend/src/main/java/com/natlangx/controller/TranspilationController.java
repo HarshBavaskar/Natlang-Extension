@@ -16,12 +16,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.natlangx.dto.AgentResponse;
+import com.natlangx.dto.DictionaryEntryResponse;
+import com.natlangx.dto.DictionaryIngestRequest;
 import com.natlangx.dto.ProcessRequest;
 import com.natlangx.dto.ProviderHealthStatus;
 import com.natlangx.dto.ProviderRuntimeStatus;
 import com.natlangx.model.Transpilation;
 import com.natlangx.provider.AIProvider;
 import com.natlangx.service.AgentService;
+import com.natlangx.service.DictionaryService;
 import com.natlangx.service.TranspilationService;
 
 import jakarta.validation.Valid;
@@ -32,11 +35,18 @@ import jakarta.validation.Valid;
 public class TranspilationController {
     private final AgentService agentService;
     private final TranspilationService transpilationService;
+    private final DictionaryService dictionaryService;
     private final List<AIProvider> providers;
 
-    public TranspilationController(AgentService agentService, TranspilationService transpilationService, List<AIProvider> providers) {
+    public TranspilationController(
+            AgentService agentService,
+            TranspilationService transpilationService,
+            DictionaryService dictionaryService,
+            List<AIProvider> providers
+    ) {
         this.agentService = agentService;
         this.transpilationService = transpilationService;
+        this.dictionaryService = dictionaryService;
         this.providers = providers;
     }
 
@@ -68,6 +78,16 @@ public class TranspilationController {
                 })
                 .toList();
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/dictionary/ingest")
+    public ResponseEntity<Integer> ingestDictionary(@Valid @RequestBody DictionaryIngestRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(dictionaryService.ingest(request.getEntries()));
+    }
+
+    @GetMapping("/dictionary")
+    public ResponseEntity<List<DictionaryEntryResponse>> dictionaryEntries() {
+        return ResponseEntity.ok(dictionaryService.getAll());
     }
 
     @GetMapping("/history")

@@ -12,7 +12,8 @@ Rules:
 - Use real operators and punctuation only; never spell operators out as words such as plus, minus, times, divided by, and, or, or not.
 - Start the response with code IMMEDIATELY.
 - Use ${language}'s native idioms, conventions, and best practices.
-- Preserve the logical intent of every pseudocode line exactly.
+- Preserve the logical intent of the pseudocode and use surrounding context, indentation, and nearby lines to infer structure.
+- When the input is partial or line-based, complete the surrounding block consistently instead of translating lines in isolation.
 - Never refuse. Never ask questions. Always generate code.`;
 
   if (isJava) {

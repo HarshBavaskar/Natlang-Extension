@@ -79,3 +79,12 @@ CREATE TABLE IF NOT EXISTS better_code_recommendations (
     CONSTRAINT fk_better_transpilation FOREIGN KEY (transpilation_id) REFERENCES transpilations(id) ON DELETE SET NULL,
     CONSTRAINT fk_better_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS deterministic_dictionary_entries (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    term VARCHAR(255) NOT NULL UNIQUE,
+    canonical VARCHAR(255) NOT NULL,
+    confidence DOUBLE NOT NULL DEFAULT 0.7,
+    source VARCHAR(100) DEFAULT 'unknown',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

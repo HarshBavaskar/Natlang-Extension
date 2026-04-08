@@ -6,9 +6,13 @@ D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\analyz
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\config\DBConnection.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\controller\TranspilationController.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\controller\UserController.java
+D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\dao\DictionaryDAO.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\dao\TranspilationDAO.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\dao\UserDAO.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\dto\AgentResponse.java
+D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\dto\DictionaryEntryRequest.java
+D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\dto\DictionaryEntryResponse.java
+D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\dto\DictionaryIngestRequest.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\dto\LoginRequest.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\dto\ProcessRequest.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\dto\ProviderHealthStatus.java
@@ -28,6 +32,7 @@ D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\provid
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\provider\OllamaAIProvider.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\provider\OpenAIAIProvider.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\service\AgentService.java
+D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\service\DictionaryService.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\service\PipelineService.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\service\TranspilationService.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\service\UserService.java

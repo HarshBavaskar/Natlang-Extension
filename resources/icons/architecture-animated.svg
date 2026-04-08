@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
   <g>
     <rect x="3" y="4" width="8" height="6" rx="1.2"/>
@@ -8,4 +9,13 @@
     <animateTransform attributeName="transform" type="scale" values="0.97 0.97;1.06 1.06;0.97 0.97" dur="1.9s" repeatCount="indefinite"/>
   </g>
   <animate attributeName="opacity" values="0.72;1;0.72" dur="1.4s" repeatCount="indefinite"/>
+=======
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="4" width="8" height="6" rx="1.2"/>
+  <rect x="13" y="4" width="8" height="6" rx="1.2"/>
+  <rect x="8" y="14" width="8" height="6" rx="1.2"/>
+  <path d="M7 10v2h10v-2"/>
+  <path d="M12 12v2"/>
+  <animate attributeName="opacity" values="0.7;1;0.7" dur="2.2s" repeatCount="indefinite"/>
+>>>>>>> 3e3ff339c45263dfaee053d34b364743e20ca984
 </svg>

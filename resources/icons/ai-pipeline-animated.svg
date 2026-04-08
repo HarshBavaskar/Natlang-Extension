@@ -1,20 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-  <circle cx="5" cy="12" r="2"/>
-  <circle cx="12" cy="12" r="2"/>
-  <circle cx="19" cy="12" r="2"/>
-  <path d="M7 12h3M14 12h3"/>
-  <g fill="#4F46E5" stroke="none">
-    <circle cx="5" cy="12" r="3.2" opacity="0.18">
-      <animate attributeName="r" values="2.1;4.1;2.1" dur="1.05s" repeatCount="indefinite"/>
-      <animate attributeName="opacity" values="0.10;0.38;0.10" dur="1.05s" repeatCount="indefinite"/>
+  <defs>
+    <linearGradient id="pipeGlow" x1="3" y1="12" x2="21" y2="12" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="0.5" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#4F46E5"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#pipeGlow)">
+    <circle cx="5" cy="12" r="2.2" fill="#4F46E5" opacity="0.95"/>
+    <circle cx="12" cy="12" r="2.2" fill="#4F46E5" opacity="0.95"/>
+    <circle cx="19" cy="12" r="2.2" fill="#4F46E5" opacity="0.95"/>
+    <path d="M7 12h3M14 12h3"/>
+  </g>
+  <g fill="#C4B5FD" stroke="none">
+    <circle cx="5" cy="12" r="3.6" opacity="0.18">
+      <animate attributeName="r" values="2.2;4.4;2.2" dur="0.95s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.12;0.42;0.12" dur="0.95s" repeatCount="indefinite"/>
     </circle>
-    <circle cx="12" cy="12" r="3.2" opacity="0.18">
-      <animate attributeName="r" values="2.1;4.1;2.1" dur="1.05s" begin="0.18s" repeatCount="indefinite"/>
-      <animate attributeName="opacity" values="0.10;0.38;0.10" dur="1.05s" begin="0.18s" repeatCount="indefinite"/>
+    <circle cx="12" cy="12" r="3.6" opacity="0.18">
+      <animate attributeName="r" values="2.2;4.4;2.2" dur="0.95s" begin="0.18s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.12;0.42;0.12" dur="0.95s" begin="0.18s" repeatCount="indefinite"/>
     </circle>
-    <circle cx="19" cy="12" r="3.2" opacity="0.18">
-      <animate attributeName="r" values="2.1;4.1;2.1" dur="1.05s" begin="0.36s" repeatCount="indefinite"/>
-      <animate attributeName="opacity" values="0.10;0.38;0.10" dur="1.05s" begin="0.36s" repeatCount="indefinite"/>
+    <circle cx="19" cy="12" r="3.6" opacity="0.18">
+      <animate attributeName="r" values="2.2;4.4;2.2" dur="0.95s" begin="0.36s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.12;0.42;0.12" dur="0.95s" begin="0.36s" repeatCount="indefinite"/>
     </circle>
   </g>
 </svg>

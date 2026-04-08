@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
   <g>
-    <path d="M12 3 2.8 19h18.4z"/>
+    <path d="M12 3 2.8 19h18.4z" fill="#4F46E5" opacity="0.12" stroke="#4F46E5"/>
     <path d="M12 8.8v5.2"/>
-    <circle cx="12" cy="16.8" r=".8" fill="#4F46E5" stroke="none"/>
-    <animateTransform attributeName="transform" type="translate" values="0 0;0.7 0;0 0;-0.7 0;0 0" dur="0.95s" repeatCount="indefinite"/>
+    <circle cx="12" cy="16.8" r="1" fill="#4F46E5" stroke="none"/>
+    <animateTransform attributeName="transform" type="translate" values="0 0;0.8 0;0 0;-0.8 0;0 0" dur="0.85s" repeatCount="indefinite"/>
   </g>
-  <animate attributeName="opacity" values="0.72;1;0.72" dur="0.95s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0.8;1;0.8" dur="0.85s" repeatCount="indefinite"/>
 </svg>

@@ -2,8 +2,8 @@
   <g>
     <path d="M12 3v12"/>
     <path d="m8 11 4 4 4-4"/>
-    <rect x="4" y="18" width="16" height="3" rx="1.2" opacity="0.24" fill="#4F46E5" stroke="none"/>
-    <animateTransform attributeName="transform" type="translate" values="0 0;0 1.2;0 0" dur="1.05s" repeatCount="indefinite"/>
+    <rect x="4" y="18" width="16" height="3" rx="1.2" opacity="0.3" fill="#4F46E5" stroke="none"/>
+    <animateTransform attributeName="transform" type="translate" values="0 0;0 1.25;0 0" dur="0.95s" repeatCount="indefinite"/>
   </g>
-  <animate attributeName="opacity" values="0.72;1;0.72" dur="1.1s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0.82;1;0.82" dur="0.95s" repeatCount="indefinite"/>
 </svg>

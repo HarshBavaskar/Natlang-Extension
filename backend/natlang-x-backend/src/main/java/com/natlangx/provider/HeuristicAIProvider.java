@@ -15,6 +15,7 @@ public class HeuristicAIProvider extends AIProvider {
 
     @Override
     public ProviderHealthStatus health() {
+        updateUsageSummary("Usage left unavailable for local heuristic provider.");
         return new ProviderHealthStatus(providerName(), true, true, "Local heuristic provider is available.");
     }
 

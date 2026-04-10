@@ -40,5 +40,6 @@ com\natlangx\provider\OpenAIAIProvider.class
 com\natlangx\dao\DictionaryDAO.class
 com\natlangx\dto\DictionaryEntryRequest.class
 com\natlangx\service\DictionaryService.class
+com\natlangx\provider\GroqAIProvider.class
 com\natlangx\dto\ProviderRuntimeStatus.class
 com\natlangx\analyzer\CodeAnalyzer.class

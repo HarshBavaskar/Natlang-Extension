@@ -188,6 +188,23 @@ export function activate(context: vscode.ExtensionContext) {
     return withSource.length;
   };
 
+  const normalizeAgenticCode = (code: string): string => {
+    if (!code) {
+      return '';
+    }
+
+    return code
+      .replace(/\\u003c/gi, '<')
+      .replace(/\\u003e/gi, '>')
+      .replace(/\\u003d/gi, '=')
+      .replace(/\\u0026/gi, '&')
+      .replace(/u003c/gi, '<')
+      .replace(/u003e/gi, '>')
+      .replace(/u003d/gi, '=')
+      .replace(/u0026/gi, '&')
+      .trim();
+  };
+
   const resolveSourceRange = (editor: vscode.TextEditor, args?: unknown): vscode.Range => {
     if (args && typeof args === 'object' && args !== null && 'startLine' in (args as any) && 'endLine' in (args as any)) {
       const { startLine, endLine } = args as any;
@@ -295,20 +312,108 @@ export function activate(context: vscode.ExtensionContext) {
     try {
         codeLensProvider.refreshCodeLenses();
         statusBar.setGenerating(language);
+
+        const originalText = editor.document.getText(range);
+        if (!range.isEmpty) {
+          await editor.edit(editBuilder => {
+            editBuilder.delete(range);
+          });
+        }
         
-        // No longer waiting for side panel if user doesn't want it, 
-        // but we keep it updated if it is open.
+        // Stream code line-by-line into editor and update sidebar
+        let currentLine = '';
+        let insertPosition = range.start;
+        let pendingInsertEdits: Promise<void> = Promise.resolve();
         
-        const code = await engine.generate(pseudocode, language, fileName, () => {});
+        const onToken = (token: string) => {
+          currentLine += token;
+          
+          // Check if we have complete lines to insert
+          const lines = currentLine.split('\n');
+          
+          // Insert all complete lines except the last (incomplete) one
+          if (lines.length > 1) {
+            const completeLines = lines.slice(0, -1);
+            const lastIncomplete = lines[lines.length - 1];
+            
+            for (const line of completeLines) {
+              const isBlankLine = !line.trim();
+              const sanitized = isBlankLine ? '\n' : engine.sanitizeStreamingLine(line, language);
+              if (!isBlankLine && !sanitized.trim()) {
+                continue;
+              }
+
+              pendingInsertEdits = pendingInsertEdits.then(async () => {
+                const textToInsert = isBlankLine ? '\n' : `${sanitized}\n`;
+                await editor.edit(editBuilder => {
+                  editBuilder.insert(insertPosition, textToInsert);
+                });
+                sidePanel.postToken(textToInsert);
+                insertPosition = insertPosition.translate(1, 0);
+              });
+            }
+            
+            currentLine = lastIncomplete;
+          }
+        };
+        
+        const generatedCode = await engine.generate(pseudocode, language, fileName, onToken);
+
+        let code = generatedCode;
+        try {
+          const projectContext = (await collectCorpus()).slice(0, 15000);
+          const optimized = await getBackendClient().process({
+            action: 'optimize',
+            prompt: `Optimize generated ${language} code while preserving behavior. Return optimized code only.`,
+            code: generatedCode,
+            language,
+            provider: (vscode.workspace.getConfiguration('natlang').get('aiProvider') as string) || 'ollama',
+            projectContext
+          });
+
+          const candidate = normalizeAgenticCode(optimized.optimizedCode || optimized.finalCode || '');
+          if (candidate) {
+            code = candidate;
+          }
+        } catch (optError) {
+          vscode.window.showWarningMessage('Agentic optimize pass failed, using generated code.');
+        }
 
         if (!code.trim()) {
           throw new Error('NatLang produced empty output.');
         }
 
-        // REPLACE CODE IN EDITOR
+        // Insert any remaining code that wasn't complete lines
+        if (currentLine.trim()) {
+          const trailingLines = currentLine.split('\n');
+          for (let index = 0; index < trailingLines.length; index++) {
+            const line = trailingLines[index];
+            const isLast = index === trailingLines.length - 1;
+            const isBlankLine = !line.trim();
+            const sanitized = isBlankLine ? '\n' : engine.sanitizeStreamingLine(line, language);
+            if (!isBlankLine && !sanitized.trim()) {
+              continue;
+            }
+
+            pendingInsertEdits = pendingInsertEdits.then(async () => {
+              const textToInsert = isBlankLine ? '\n' : `${sanitized}${isLast ? '' : '\n'}`;
+              await editor.edit(editBuilder => {
+                editBuilder.insert(insertPosition, textToInsert);
+              });
+              sidePanel.postToken(textToInsert);
+              insertPosition = insertPosition.translate(1, 0);
+            });
+          }
+        }
+
+        await pendingInsertEdits;
+
+        // Final reconciliation pass: replace streamed draft with the fully cleaned engine output.
+        const streamedRange = new vscode.Range(range.start, insertPosition);
         await editor.edit(editBuilder => {
-          editBuilder.replace(range, code);
+          editBuilder.replace(streamedRange, code);
         });
+        sidePanel.postDone(code, language);
 
         const autoLearn = (vscode.workspace.getConfiguration('natlang').get('autoLearnDictionaryFromGeneration') as boolean) ?? true;
         if (autoLearn) {
@@ -330,6 +435,16 @@ export function activate(context: vscode.ExtensionContext) {
       statusBar.setSuccess();
       codeLensProvider.refreshCodeLenses();
     } catch (error) {
+      if (range) {
+        try {
+          const currentInsertedRange = new vscode.Range(range.start, insertPosition);
+          await editor.edit(editBuilder => {
+            editBuilder.replace(currentInsertedRange, originalText);
+          });
+        } catch {
+          // Best effort restore.
+        }
+      }
       let friendlyMessage = (error as Error).message;
       let actionTitle: string | undefined;
       let actionCommand: string | undefined;
@@ -491,7 +606,7 @@ export function activate(context: vscode.ExtensionContext) {
   }));
 
   disposables.push(vscode.commands.registerCommand('natlang.setApiKey', async (providerParam?: string) => {
-    const providers = ['anthropic', 'gemini', 'openai'];
+    const providers = ['anthropic', 'gemini', 'groq', 'openai'];
     let provider = providerParam || await vscode.window.showQuickPick(providers, { placeHolder: 'Select provider' });
     if (!provider) return;
 

@@ -1,11 +1,15 @@
 package com.natlangx.provider;
 
+import java.net.http.HttpHeaders;
+import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.natlangx.dto.ProviderHealthStatus;
 
 public abstract class AIProvider {
+    private String usageSummary = "Usage left unavailable.";
+
     public abstract String providerName();
 
     public String modelName() {
@@ -32,6 +36,55 @@ public abstract class AIProvider {
 
     public ProviderHealthStatus health() {
         return new ProviderHealthStatus(providerName(), true, true, "Provider is ready.");
+    }
+
+    public String usageSummary() {
+        return usageSummary;
+    }
+
+    protected void updateUsageSummary(HttpHeaders headers) {
+        if (headers == null) {
+            return;
+        }
+
+        String requestsRemaining = firstHeader(headers, "x-ratelimit-remaining-requests", "ratelimit-remaining-requests", "x-ratelimit-remaining");
+        String tokensRemaining = firstHeader(headers, "x-ratelimit-remaining-tokens", "ratelimit-remaining-tokens", "anthropic-ratelimit-tokens-remaining");
+        String resetAfter = firstHeader(headers, "x-ratelimit-reset-requests", "x-ratelimit-reset-tokens", "retry-after", "ratelimit-reset");
+
+        ArrayList<String> parts = new ArrayList<>();
+        if (!requestsRemaining.isBlank()) {
+            parts.add("requests left " + requestsRemaining);
+        }
+        if (!tokensRemaining.isBlank()) {
+            parts.add("tokens left " + tokensRemaining);
+        }
+        if (!resetAfter.isBlank()) {
+            parts.add("reset " + resetAfter);
+        }
+
+        if (parts.isEmpty()) {
+            usageSummary = "Usage left unavailable.";
+        } else {
+            usageSummary = String.join(", ", parts);
+        }
+    }
+
+    protected void updateUsageSummary(String summary) {
+        if (summary == null || summary.isBlank()) {
+            usageSummary = "Usage left unavailable.";
+        } else {
+            usageSummary = summary.trim();
+        }
+    }
+
+    private String firstHeader(HttpHeaders headers, String... names) {
+        for (String name : names) {
+            String value = headers.firstValue(name).orElse("");
+            if (!value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
     }
 
     public static String normalizeGeneratedCode(String value) {
@@ -90,7 +143,11 @@ public abstract class AIProvider {
         result = result.replaceAll("(?m)^\\s*#{1,6}\\s+", "");
         result = result.replaceAll("(?m)^\\s*(?:[-*+]|\\d+\\.)\\s+(?=[A-Za-z_])", "");
         result = result.replaceAll("(?m)^\\s*`([^`]+)`\\s*$", "$1");
-        result = result.replaceAll("(?im)^\\s*(note|notes|comment|comments|explanation|summary|output|result)\\s*:\\s*.*$", "");
+        result = result.replaceAll("(?im)^\\s*(note|notes|comment|comments|explanation|summary|output|result|code|here)\\s*:\\s*.*$", "");
+        // Remove prompt indicators
+        result = result.replaceAll("(?im)^\\s*(As requested|Here's|Here is|This|I will|To|You are|Provide|Summarize|Return|The following).*$", "");
+        // Remove any lines that look like prompts or instructions
+        result = result.replaceAll("(?im)^\\s*[A-Z][a-z]+ (code|optimiz|analyz|explain|summariz).*", "");
         return result;
     }
 

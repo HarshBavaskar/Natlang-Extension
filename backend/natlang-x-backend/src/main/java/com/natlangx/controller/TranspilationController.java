@@ -73,7 +73,8 @@ public class TranspilationController {
                             provider.modelName(),
                             health.isConfigured(),
                             health.isReachable(),
-                            health.getDetail()
+                            health.getDetail(),
+                            provider.usageSummary()
                     );
                 })
                 .toList();

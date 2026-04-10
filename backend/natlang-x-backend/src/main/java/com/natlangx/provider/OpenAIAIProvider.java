@@ -48,6 +48,7 @@ public class OpenAIAIProvider extends AIProvider {
                     .GET()
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                updateUsageSummary(response.headers());
             boolean ok = response.statusCode() < 400;
             return new ProviderHealthStatus(providerName(), true, ok, ok
                     ? "OpenAI reachable at " + endpoint
@@ -124,6 +125,7 @@ public class OpenAIAIProvider extends AIProvider {
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            updateUsageSummary(response.headers());
             if (response.statusCode() >= 400) {
                 throw new RuntimeException("OpenAI call failed with status " + response.statusCode() + ": " + response.body());
             }

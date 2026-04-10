@@ -46,6 +46,7 @@ public class OllamaAIProvider extends AIProvider {
                     .GET()
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                updateUsageSummary(response.headers());
             boolean ok = response.statusCode() < 400;
             return new ProviderHealthStatus(providerName(), true, ok, ok
                     ? "Ollama reachable at " + endpoint
@@ -61,17 +62,23 @@ public class OllamaAIProvider extends AIProvider {
     @Override
     public String generateCode(String prompt, String language) {
         String instruction = "Generate clean " + safe(language) + " code only. No markdown fences, no comments, no notes. "
-                + "Use real operators and punctuation only; never spell operators as words. Prompt: " + safe(prompt);
-        return callOllama(instruction);
+                + "Use real operators and punctuation only; never spell operators as words. "
+                + "Preserve line breaks and proper indentation. Return code only with each statement on its own line. "
+                + "Prompt: " + safe(prompt);
+        String result = callOllama(instruction);
+        return normalizeGeneratedCode(result);
     }
 
     @Override
     public String optimizeCode(String code, String language) {
         String instruction = "Optimize the following " + safe(language)
-            + " code for time and space complexity while preserving behavior. Return code only, no commentary, no notes, no markdown. "
-            + "Use real operators and punctuation only; never spell operators as words. Code:\n"
+            + " code for time and space complexity while preserving behavior. Return ONLY the optimized code."
+            + " Preserve line breaks and proper indentation. Each statement on its own line."
+            + " No commentary, no notes, no markdown, no explanations. "
+            + "Use real operators and punctuation only; never spell operators as words.\nCode:\n"
                 + safe(code);
-        return callOllama(instruction);
+        String result = callOllama(instruction);
+        return normalizeGeneratedCode(result);
     }
 
     @Override
@@ -85,7 +92,8 @@ public class OllamaAIProvider extends AIProvider {
                 + "Summarize the meaning of this " + safe(language)
                 + " code with exactly three sections: Purpose, Flow, Outcome. Code:\n"
                 + safe(code);
-        return callOllama(instruction);
+        String result = callOllama(instruction);
+        return stripPromptArtifacts(result);
     }
 
     @Override
@@ -94,7 +102,8 @@ public class OllamaAIProvider extends AIProvider {
                 + "Provide exactly four numbered next-step recommendations to improve this " + safe(language)
                 + " codebase for maintainability, performance, reliability, and testing. Code:\n"
                 + safe(code);
-        return callOllama(instruction);
+        String result = callOllama(instruction);
+        return stripPromptArtifacts(result);
     }
 
     private String callOllama(String prompt) {
@@ -104,27 +113,43 @@ public class OllamaAIProvider extends AIProvider {
             String payload = "{"
                     + "\"model\":\"" + escapeJson(resolvedModel) + "\"," 
                     + "\"prompt\":\"" + escapeJson(prompt) + "\","
-                    + "\"stream\":false,"
-                    + "\"options\":{\"temperature\":0,\"top_p\":0,\"seed\":42}"
+                    + "\"stream\":true,"
+                    + "\"options\":{\"temperature\":0,\"top_p\":1,\"seed\":42}"
                     + "}";
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(endpoint))
-                    .timeout(Duration.ofSeconds(60))
+                    .timeout(Duration.ofSeconds(300))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(payload))
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            updateUsageSummary(response.headers());
             if (response.statusCode() >= 400) {
                 throw new RuntimeException("Ollama call failed with status " + response.statusCode() + " from " + endpoint + " using model " + resolvedModel + ". Response: " + summarize(response.body()));
             }
 
-            String text = extractJsonStringField(response.body(), "response");
-            if (text.isBlank()) {
-                throw new RuntimeException("Ollama response did not contain generated text from " + endpoint + " using model " + resolvedModel + ". Raw response: " + summarize(response.body()));
+            // Parse streaming response: each line is a JSON object with "response" field
+            StringBuilder fullText = new StringBuilder();
+            String[] lines = response.body().split("\n");
+            for (String line : lines) {
+                if (line.trim().isBlank()) {
+                    continue;
+                }
+                String chunk = extractJsonStringField(line, "response");
+                if (!chunk.isBlank()) {
+                    fullText.append(chunk);
+                }
             }
-            return text;
+            
+            String text = fullText.toString().trim();
+            if (text.isBlank()) {
+                throw new RuntimeException("Ollama streaming response did not contain generated text from " + endpoint + " using model " + resolvedModel + ". Raw response: " + summarize(response.body()));
+            }
+            
+            // Normalize the final result to remove prompt artifacts and single-line encoding
+            return normalizeGeneratedCode(text);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new RuntimeException(buildErrorMessage("Failed to call Ollama provider", endpoint, ex), ex);
@@ -168,7 +193,7 @@ public class OllamaAIProvider extends AIProvider {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(endpoint))
-                    .timeout(Duration.ofSeconds(5))
+                    .timeout(Duration.ofSeconds(2))
                     .GET()
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -235,6 +260,24 @@ public class OllamaAIProvider extends AIProvider {
             index = i;
         }
         return models;
+    }
+
+    private String stripPromptArtifacts(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        
+        // Remove lines starting with prompt indicators
+        String result = text.replaceAll("(?im)^\\s*(You are|Provide|Summarize|Return|Here|Note:|Explanation:).*$", "").trim();
+        
+        // Remove any remaining structured prompts
+        result = result.replaceAll("(?im)^##.*$", "");
+        result = result.replaceAll("(?im)^###.*$", "");
+        
+        // Clean up multiple blank lines
+        result = result.replaceAll("\\n{3,}", "\n\n").trim();
+        
+        return result;
     }
 
     private String describeThrowable(Throwable throwable) {

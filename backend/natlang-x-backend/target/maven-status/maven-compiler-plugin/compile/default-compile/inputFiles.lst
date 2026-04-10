@@ -28,6 +28,7 @@ D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\model\
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\provider\AIProvider.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\provider\AnthropicAIProvider.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\provider\GeminiAIProvider.java
+D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\provider\GroqAIProvider.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\provider\HeuristicAIProvider.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\provider\OllamaAIProvider.java
 D:\Natlang Extension\backend\natlang-x-backend\src\main\java\com\natlangx\provider\OpenAIAIProvider.java

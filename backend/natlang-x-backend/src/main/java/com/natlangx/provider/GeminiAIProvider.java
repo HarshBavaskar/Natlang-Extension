@@ -47,6 +47,7 @@ public class GeminiAIProvider extends AIProvider {
                     .GET()
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                updateUsageSummary(response.headers());
             boolean ok = response.statusCode() < 400;
             return new ProviderHealthStatus(providerName(), true, ok, ok
                     ? "Gemini reachable at models endpoint"
@@ -122,6 +123,7 @@ public class GeminiAIProvider extends AIProvider {
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            updateUsageSummary(response.headers());
             if (response.statusCode() >= 400) {
                 throw new RuntimeException("Gemini call failed with status " + response.statusCode() + ": " + response.body());
             }

@@ -29,6 +29,7 @@ export interface ProviderRuntimeStatus {
   configured: boolean;
   reachable: boolean;
   detail: string;
+  usageLeft: string;
 }
 
 export interface DictionaryEntry {
@@ -119,7 +120,8 @@ export class AgenticBackendClient {
           model: '',
           configured: item.configured,
           reachable: item.reachable,
-          detail: item.detail
+          detail: item.detail,
+          usageLeft: 'Usage left unavailable.'
         }));
       }
       throw error;

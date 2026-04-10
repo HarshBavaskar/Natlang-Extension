@@ -6,16 +6,18 @@ public class ProviderRuntimeStatus {
     private boolean configured;
     private boolean reachable;
     private String detail;
+    private String usageLeft;
 
     public ProviderRuntimeStatus() {
     }
 
-    public ProviderRuntimeStatus(String provider, String model, boolean configured, boolean reachable, String detail) {
+    public ProviderRuntimeStatus(String provider, String model, boolean configured, boolean reachable, String detail, String usageLeft) {
         this.provider = provider;
         this.model = model;
         this.configured = configured;
         this.reachable = reachable;
         this.detail = detail;
+        this.usageLeft = usageLeft;
     }
 
     public String getProvider() {
@@ -56,5 +58,13 @@ public class ProviderRuntimeStatus {
 
     public void setDetail(String detail) {
         this.detail = detail;
+    }
+
+    public String getUsageLeft() {
+        return usageLeft;
+    }
+
+    public void setUsageLeft(String usageLeft) {
+        this.usageLeft = usageLeft;
     }
 }

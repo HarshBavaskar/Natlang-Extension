@@ -4,6 +4,7 @@
     const providerButtons = document.querySelectorAll('.core-btn');
     const collapseToggles = document.querySelectorAll('.collapse-toggle');
     const systemState = document.getElementById('system-state');
+    const apiUsageValue = document.getElementById('api-usage-value');
     const progressBarFill = document.getElementById('progress-bar-fill');
     const agenticInsert = document.getElementById('agentic-insert');
     const agenticCode = document.getElementById('agentic-code');
@@ -268,6 +269,12 @@
             return;
         }
 
+        const selectedProvider = document.querySelector('.core-btn.active')?.dataset.value || '';
+        const selectedRuntime = Array.isArray(runtime) ? runtime.find(item => item.provider === selectedProvider) : null;
+        if (apiUsageValue) {
+            apiUsageValue.textContent = selectedRuntime?.usageLeft || 'Usage left unavailable.';
+        }
+
         providerRuntimeList.innerHTML = '';
         if (providerRuntimeMessage) {
             providerRuntimeMessage.textContent = runtime && runtime.length ? 'Runtime loaded.' : 'No providers reported.';
@@ -288,6 +295,7 @@
                 </div>
                 <div class="provider-runtime-status">${item.configured ? 'configured' : 'missing key'} · ${item.reachable ? 'reachable' : 'down'}</div>
                 <div class="provider-runtime-detail">${item.detail || ''}</div>
+                <div class="provider-runtime-usage">${item.usageLeft || 'Usage left unavailable.'}</div>
             `;
             providerRuntimeList.appendChild(row);
         });

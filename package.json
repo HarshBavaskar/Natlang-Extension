@@ -229,6 +229,7 @@
             "ollama",
             "anthropic",
             "gemini",
+            "groq",
             "openai"
           ],
           "default": "ollama",
@@ -241,7 +242,7 @@
         },
         "natlang.ollamaModel": {
           "type": "string",
-          "default": "codellama",
+          "default": "gemma3:4b",
           "description": "Ollama model name."
         },
         "natlang.anthropicModel": {
@@ -253,6 +254,11 @@
           "type": "string",
           "default": "gemini-2.0-flash",
           "description": "Gemini model name."
+        },
+        "natlang.groqModel": {
+          "type": "string",
+          "default": "llama-3.3-70b-versatile",
+          "description": "Groq model name."
         },
         "natlang.dictionaryMode": {
           "type": "boolean",

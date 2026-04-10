@@ -36,10 +36,26 @@ public class CodeAgent {
 
         String actionLower = action.toLowerCase(Locale.ROOT);
         if ("summarize".equals(actionLower)) {
-            return summarizeOnly(aiProvider, language, code, projectSuggestions);
+            try {
+                return summarizeOnly(aiProvider, language, code, projectSuggestions);
+            } catch (Exception e) {
+                AIProvider fallback = getFallbackProvider(aiProvider);
+                if (fallback != aiProvider) {
+                    return summarizeOnly(fallback, language, code, projectSuggestions);
+                }
+                throw e;
+            }
         }
         if ("better".equals(actionLower)) {
-            return suggestBetterOnly(aiProvider, language, code, projectSuggestions);
+            try {
+                return suggestBetterOnly(aiProvider, language, code, projectSuggestions);
+            } catch (Exception e) {
+                AIProvider fallback = getFallbackProvider(aiProvider);
+                if (fallback != aiProvider) {
+                    return suggestBetterOnly(fallback, language, code, projectSuggestions);
+                }
+                throw e;
+            }
         }
 
         if (("optimize".equalsIgnoreCase(action) || "summarize".equalsIgnoreCase(action) || "better".equalsIgnoreCase(action))
@@ -50,8 +66,13 @@ public class CodeAgent {
         AgentDecision decision = decide(action, prompt, code);
         AgentResponse response = new AgentResponse();
 
-        Tool topicTool = new TopicClassifierTool();
-        response.setTopic(topicTool.execute(prompt + "\n" + code));
+        // Only classify topic for auto actions, not for explicit optimize/summarize/better
+        if ("auto".equalsIgnoreCase(action)) {
+            Tool topicTool = new TopicClassifierTool();
+            response.setTopic(topicTool.execute(prompt + "\n" + code));
+        } else {
+            response.setTopic("");
+        }
 
         String workingCode = code;
 
@@ -76,17 +97,20 @@ public class CodeAgent {
             workingCode = AIProvider.normalizeGeneratedCode(workingCode);
             decision.getSteps().add("Optimized");
 
-            // Iterative improvement: re-analyze and optimize once more if still quadratic.
-            analysisResult = complexityAnalyzer.analyze(workingCode, language);
-            if ("O(n^2)".equals(analysisResult.getTimeComplexity())) {
-                workingCode = optimizer.execute(workingCode);
-                workingCode = AIProvider.normalizeGeneratedCode(workingCode);
-                decision.getSteps().add("Optimized-Again");
+            // Only re-optimize if action is explicitly optimize AND result is still quadratic
+            if ("optimize".equalsIgnoreCase(action)) {
                 analysisResult = complexityAnalyzer.analyze(workingCode, language);
+                if ("O(n^2)".equals(analysisResult.getTimeComplexity())) {
+                    workingCode = optimizer.execute(workingCode);
+                    workingCode = AIProvider.normalizeGeneratedCode(workingCode);
+                    decision.getSteps().add("Optimized-Again");
+                    analysisResult = complexityAnalyzer.analyze(workingCode, language);
+                }
             }
         }
 
-        if (decision.isShouldExplain()) {
+        // Only explain if explicitly requested via action parameter (not for standalone optimize/better)
+        if (decision.isShouldExplain() && "auto".equals(action)) {
             Tool explainer = new ExplanationTool(aiProvider, language);
             response.setExplanation(explainer.execute(workingCode));
             decision.getSteps().add("Explained");
@@ -115,7 +139,7 @@ public class CodeAgent {
         response.setTimeComplexity("-");
         response.setSpaceComplexity("-");
         response.setSuggestions(mergeSuggestions("Summary-only mode.", projectSuggestions));
-        response.setTopic(new TopicClassifierTool().execute(code));
+        response.setTopic("");  // Skip topic classification for summarize
         response.setSteps(List.of("Summarized"));
         response.setDecisionLog("Agent chose summarize-only semantic pipeline | Provider: " + aiProvider.providerName());
         return response;
@@ -136,10 +160,22 @@ public class CodeAgent {
         response.setTimeComplexity(analysis.getTimeComplexity());
         response.setSpaceComplexity(analysis.getSpaceComplexity());
         response.setSuggestions(mergeSuggestions(analysis.getSuggestions(), projectSuggestions));
-        response.setTopic(new TopicClassifierTool().execute(code));
+        response.setTopic("");  // Skip topic classification for better
         response.setSteps(List.of("Analyzed", "Suggested-Better-Path"));
         response.setDecisionLog("Agent chose better-option recommendation pipeline | Provider: " + aiProvider.providerName());
         return response;
+    }
+
+    private AIProvider getFallbackProvider(AIProvider current) {
+        if ("heuristic".equalsIgnoreCase(current.providerName())) {
+            return current;
+        }
+        for (AIProvider provider : providers) {
+            if ("heuristic".equalsIgnoreCase(provider.providerName())) {
+                return provider;
+            }
+        }
+        return current;
     }
 
     private AIProvider resolveProvider(String providerName) {

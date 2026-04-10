@@ -4,7 +4,7 @@ export class OllamaProvider implements AIProvider {
   private baseUrl: string;
   private model: string;
 
-  constructor(baseUrl: string = 'http://localhost:11434', model: string = 'codellama') {
+  constructor(baseUrl: string = 'http://localhost:11434', model: string = 'gemma3:4b') {
     this.baseUrl = baseUrl;
     this.model = model;
   }
@@ -42,8 +42,13 @@ export class OllamaProvider implements AIProvider {
         model: this.model,
         prompt,
         stream: true,
+        keep_alive: '30m',
         options: {
-          temperature: 0
+          temperature: 0,
+          num_ctx: 2048,
+          num_predict: 768,
+          top_k: 20,
+          top_p: 0.9
         }
       }),
       onData

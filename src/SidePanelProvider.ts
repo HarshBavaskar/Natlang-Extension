@@ -174,6 +174,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
             <button class="core-btn ${aiProvider === 'anthropic' ? 'active' : ''}" data-value="anthropic">Claude</button>
             <button class="core-btn ${aiProvider === 'gemini' ? 'active' : ''}" data-value="gemini">Gemini</button>
             <button class="core-btn ${aiProvider === 'openai' ? 'active' : ''}" data-value="openai">GPT-4</button>
+            <button class="core-btn ${aiProvider === 'groq' ? 'active' : ''}" data-value="groq">Groq</button>
           </div>
         </div>
       </div>
@@ -261,7 +262,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
 
     <div id="better-section" class="result-section hidden">
       <div class="result-label">Better Code</div>
-      <div id="better-content" class="text-result"></div>
+      <div id="better-content" class="text-result scrollable-result"></div>
     </div>
   </div>
 
@@ -271,6 +272,10 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     <div class="status-meta">
       <span class="stat-label">System State</span>
       <span id="system-state" class="stat-value">READY</span>
+    </div>
+    <div class="status-meta">
+      <span class="stat-label">API Usage Left</span>
+      <span id="api-usage-value" class="stat-value">Loading...</span>
     </div>
     <div id="progress-container" class="progress-wrap" style="opacity: 0;">
       <div class="progress-bar">
@@ -460,6 +465,15 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
         provider,
         projectContext
       });
+      
+      // For optimize action, stream code into editor line-by-line
+      if (action === 'optimize' && result.optimizedCode) {
+        const optimizedCode = this.normalizeAgenticCode(result.optimizedCode);
+        if (hasSelection) {
+          await this.insertCodeLineByLine(editor, editor.selection, optimizedCode);
+        }
+      }
+      
       this.postAgenticDone(result);
     } catch (error) {
       this.postAgenticError((error as Error).message);
@@ -479,6 +493,28 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       .replace(/u003e/gi, '>')
       .replace(/u003d/gi, '=')
       .replace(/u0026/gi, '&');
+  }
+
+  private async insertCodeLineByLine(
+    editor: vscode.TextEditor,
+    selection: vscode.Selection,
+    code: string
+  ): Promise<void> {
+    const lines = code.replace(/\r/g, '').split('\n');
+    await editor.edit((editBuilder) => {
+      editBuilder.delete(selection);
+    });
+
+    let insertPosition = selection.start;
+    for (let index = 0; index < lines.length; index++) {
+      const line = lines[index];
+      const isLast = index === lines.length - 1;
+      await editor.edit((editBuilder) => {
+        const text = isLast ? line : `${line}\n`;
+        editBuilder.insert(insertPosition, text);
+      });
+      insertPosition = insertPosition.translate(1, 0);
+    }
   }
 
   private async collectProjectContext(): Promise<string> {

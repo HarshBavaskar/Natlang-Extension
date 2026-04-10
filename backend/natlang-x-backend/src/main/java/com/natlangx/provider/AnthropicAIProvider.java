@@ -49,6 +49,7 @@ public class AnthropicAIProvider extends AIProvider {
                     .GET()
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                updateUsageSummary(response.headers());
             boolean ok = response.statusCode() < 400;
             return new ProviderHealthStatus(providerName(), true, ok, ok
                     ? "Anthropic reachable at models endpoint"
@@ -127,6 +128,7 @@ public class AnthropicAIProvider extends AIProvider {
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            updateUsageSummary(response.headers());
             if (response.statusCode() >= 400) {
                 throw new RuntimeException("Anthropic call failed with status " + response.statusCode() + ": " + response.body());
             }

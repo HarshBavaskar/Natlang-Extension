@@ -4,6 +4,7 @@ import { OllamaProvider } from './providers/OllamaProvider';
 import { AnthropicProvider } from './providers/AnthropicProvider';
 import { GeminiProvider } from './providers/GeminiProvider';
 import { OpenAIProvider } from './providers/OpenAIProvider';
+import { GroqProvider } from './providers/GroqProvider';
 import { buildPrompt } from './PromptBuilder';
 
 interface HistoryEntry {
@@ -52,7 +53,7 @@ export class TranspilerEngine {
       case 'ollama':
         return new OllamaProvider(
           config.get('ollamaBaseUrl') as string || 'http://localhost:11434',
-          config.get('ollamaModel') as string || 'codellama'
+          config.get('ollamaModel') as string || 'gemma3:4b'
         );
 
       case 'anthropic': {
@@ -71,6 +72,12 @@ export class TranspilerEngine {
         const apiKey = await this.context.secrets.get('natlang.openaiKey') || '';
         if (!apiKey) throw new Error('NO_API_KEY:openai');
         return new OpenAIProvider(apiKey, config.get('openaiModel') as string || 'gpt-4o');
+      }
+
+      case 'groq': {
+        const apiKey = await this.context.secrets.get('natlang.groqKey') || '';
+        if (!apiKey) throw new Error('NO_API_KEY:groq');
+        return new GroqProvider(apiKey, config.get('groqModel') as string || 'llama-3.3-70b-versatile');
       }
 
       default:
@@ -147,14 +154,15 @@ export class TranspilerEngine {
         currentRaw = ''; 
         const code = await provider.generate(system, user, streamedOnToken);
         
-        const cleanedCode = this.cleanupCode(code);
+        const cleanedCode = await this.refineAndFinalizeGeneratedCode(provider, code, language, pseudocode);
+        const finalCode = cleanedCode;
         
         let topic = 'General Script';
         let complexity = 'Standard';
         try {
             const metaResult = await provider.generate(
                 "You are a code analyzer. Extract a 2-3 word topic and a complexity level (Simple, Moderate, Complex). Output format: TOPIC | COMPLEXITY. No other text.",
-                `Analyze this ${language} code:\n\n${cleanedCode}`,
+            `Analyze this ${language} code:\n\n${finalCode}`,
                 () => {}
             );
             const [t, c] = metaResult.split('|');
@@ -163,14 +171,14 @@ export class TranspilerEngine {
         } catch (e) { /* Defaults */ }
 
         if (options.persistResult !== false) {
-          this.lastGeneratedCode = cleanedCode;
+          this.lastGeneratedCode = finalCode;
           this.lastGeneratedLanguage = language;
 
           this.history.unshift({
             timestamp: Date.now(),
             fileName,
             pseudocode,
-            code: cleanedCode,
+            code: finalCode,
             language,
             provider: provider.getName(),
             topic,
@@ -181,7 +189,7 @@ export class TranspilerEngine {
         }
 
         this.isGenerating = false;
-        return cleanedCode;
+        return finalCode;
       } catch (error) {
         lastError = error as Error;
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -190,6 +198,11 @@ export class TranspilerEngine {
 
     this.isGenerating = false;
     throw lastError!;
+  }
+
+  public sanitizeStreamingLine(line: string, language: string): string {
+    const cleaned = this.sanitizeLine(line, language, true);
+    return cleaned ?? '';
   }
 
   private stripPreambles(text: string): string {
@@ -203,8 +216,67 @@ export class TranspilerEngine {
     return clean;
   }
 
-  private cleanupCode(code: string): string {
+  private finalizeGeneratedCode(code: string, language: string): string {
     let result = code.trim();
+
+    for (let pass = 0; pass < 3; pass++) {
+      const next = this.cleanupCodePass(result, language);
+      if (next === result) {
+        break;
+      }
+      result = next;
+    }
+
+    return result;
+  }
+
+  private async refineAndFinalizeGeneratedCode(
+    provider: AIProvider,
+    code: string,
+    language: string,
+    pseudocode: string
+  ): Promise<string> {
+    const firstPass = this.finalizeGeneratedCode(code, language);
+    if (!firstPass) {
+      return firstPass;
+    }
+
+    try {
+      const system = [
+        `You are a strict ${language} code refiner.`,
+        'Return raw code only.',
+        'Do not output markdown, comments, explanations, notes, or prompts.',
+        'Preserve the original intent and context exactly.',
+        'Repair indentation, blank lines, syntax, formatting, and any visible artifacts.',
+        'If the code is already correct, return it unchanged except for cleanup.'
+      ].join(' ');
+
+      const user = [
+        'Refine this code using the original pseudocode context and return the final code only.',
+        '',
+        'Original pseudocode:',
+        pseudocode,
+        '',
+        'Current code:',
+        firstPass
+      ].join('\n');
+
+      const secondPass = await provider.generate(system, user, () => {});
+      const refined = this.finalizeGeneratedCode(secondPass || firstPass, language);
+      if (!refined || !this.hasVisibleArtifactSignals(refined)) {
+        return refined || firstPass;
+      }
+
+      const thirdPass = await provider.generate(system, user, () => {});
+      const retested = this.finalizeGeneratedCode(thirdPass || refined, language);
+      return retested || refined || firstPass;
+    } catch {
+      return firstPass;
+    }
+  }
+
+  private cleanupCodePass(code: string, language: string): string {
+    let result = code.replace(/\r/g, '').trim();
 
     // Prefer fenced body when model wraps code in markdown.
     const fenced = result.match(/```(?:[\w#+.-]+)?\s*\n?([\s\S]*?)\n?```/);
@@ -219,11 +291,78 @@ export class TranspilerEngine {
     result = result.replace(/^\s{0,3}(?:[-*+]|\d+\.)\s+(?=[A-Za-z])/gm, '');
     result = result.replace(/^\s*`([^`]+)`\s*$/gm, '$1');
 
-    // Remove conversational preambles, keep actual code untouched.
-    result = result.replace(/^(Here is|Here's|Sure|Certainly|As requested|Below is|The code|Transforming).+?:\n+/i, '');
+    const lines = result.split('\n');
+    const filteredLines: string[] = [];
+
+    for (const line of lines) {
+      const sanitized = this.sanitizeLine(line, language, false);
+      if (sanitized === null) {
+        continue;
+      }
+      filteredLines.push(sanitized);
+    }
+
+    result = filteredLines.join('\n');
+    result = result.replace(/^(Here is|Here's|Sure|Certainly|As requested|Below is|The code|Transforming|Converting|Output raw|STRICT INSTRUCTION|System prompt|Prompt|Note|Explanation|Summary).+?(\n+|$)/i, '');
 
     // Trim only leading/trailing empty lines; preserve code structure.
     return result.replace(/^\s*\n+|\n+\s*$/g, '');
+  }
+
+  private sanitizeLine(line: string, language: string, keepBlankLines: boolean): string | null {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      return keepBlankLines ? '' : '';
+    }
+
+    if (this.isArtifactLine(trimmed, language)) {
+      return null;
+    }
+
+    return line.replace(/[\t ]+$/g, '');
+  }
+
+  private isArtifactLine(trimmedLine: string, language: string): boolean {
+    const artifactPhrases = [
+      /^(Here is|Here's|Sure|Certainly|As requested|Below is|The code|Transforming|Converting|Output raw|STRICT INSTRUCTION|System prompt|Prompt|Note|Explanation|Summary|Follow these|Let me)/i,
+      /^(Do not|Don't|Never|No comments|No markdown|No fences|No explanations|No conversational text)/i,
+      /^(Convert this pseudocode|STRICT INSTRUCTION:|STRICTLY:|Instruction:)/i
+    ];
+
+    if (artifactPhrases.some((pattern) => pattern.test(trimmedLine))) {
+      return true;
+    }
+
+    if (/^(\/\/|\/\*|\*\/|\*\s)/.test(trimmedLine)) {
+      return true;
+    }
+
+    if (/^--\s*/.test(trimmedLine)) {
+      return true;
+    }
+
+    if (language === 'Python' || language === 'Bash' || language === 'PowerShell' || language === 'Shell' || language === 'YAML') {
+      if (/^#\s+/.test(trimmedLine)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private hasVisibleArtifactSignals(text: string): boolean {
+    if (!text) {
+      return false;
+    }
+
+    const suspiciousPatterns = [
+      /(?:^|\n)\s*(Here is|Here's|Sure|Certainly|As requested|Below is|The code|Transforming|Converting|Prompt|Note|Explanation|Summary|System prompt)/i,
+      /(?:^|\n)\s*(Do not|Don't|Never|No comments|No markdown|No fences|No explanations|No conversational text)/i,
+      /```|~~~/,
+      /\b(?:prompt|instructions?|artifact|notes?|comments?)\b/i
+    ];
+
+    return suspiciousPatterns.some((pattern) => pattern.test(text));
   }
 
 

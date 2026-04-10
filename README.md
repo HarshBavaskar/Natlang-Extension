@@ -25,7 +25,7 @@ NatLang is built on a high-performance, distributed architecture ensuring stabil
 - **Backend (Agentic AI)**: Java-based orchestration for deep code analysis and logical validation.
 - **AI Core**: Native multi-provider support:
     - **Local**: Ollama (CodeLlama, DeepSeek, Starcoder2).
-    - **Cloud**: Anthropic Claude 3.5, Google Gemini 1.5 Pro/Flash, OpenAI GPT-4o.
+  - **Cloud**: Anthropic Claude 3.5, Google Gemini 1.5 Pro/Flash, Groq-hosted Llama, OpenAI GPT-4o.
 - **Build & CI**: esbuild, ESLint, GitHub Actions (for deployment).
 
 ---
@@ -48,7 +48,7 @@ Turn on **NatLang: Toggle Live Generation Preview** to keep typing pseudocode wh
 ### Systems Architecture Dashboard
 The integrated sidebar provides a high-fidelity interface for managing your AI orchestration. 
 - **Target Selection**: Quickly switch between programming languages and frameworks.
-- **Provider Management**: Toggle between local LLMs (Ollama) and cloud-based hyper-scalers (Gemini, Anthropic, OpenAI).
+- **Provider Management**: Toggle between local LLMs (Ollama) and cloud-based providers (Gemini, Anthropic, Groq, OpenAI).
 - **Processing Monitor**: Track real-time metadata including complexity analysis and generation progress.
 
 ### Agentic AI Pipeline
@@ -109,6 +109,7 @@ The central hub for all operations. It manages the lifecycle of a generation req
 | `natlang.aiProvider` | Primary AI engine for generation | `Ollama` |
 | `natlang.defaultLanguage` | The initial target language | `TypeScript` |
 | `natlang.ollamaModel` | The local model to invoke | `codellama` |
+| `natlang.groqModel` | The Groq model to invoke | `llama-3.3-70b-versatile` |
 | `natlang.backendBaseUrl` | Endpoint for the Agentic AI API | `http://localhost:9001` |
 | `natlang.liveGenerationDebounceMs` | Delay before live preview refreshes after typing | `650` |
 | `natlang.liveGenerationContextLines` | Context lines NatLang includes for each live generation step | `3` |

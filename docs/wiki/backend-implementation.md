@@ -1,44 +1,163 @@
 # Backend Implementation: NatLang X Engine
 
-The NatLang X Backend is a production-grade **Java 21** and **Spring Boot 3** service designed for high-performance agentic reasoning and code optimization.
+The NatLang X backend is a Spring Boot service that turns a pseudocode request into code, analysis, optimization guidance, and optional explanation output. It is intentionally small in surface area but rich in orchestration: the real work happens in the agent pipeline.
 
-## 3-Layer Architecture
+## Overview
 
-The backend follows a strict **Clean Architecture** pattern to ensure separation of concerns and testability.
+The backend serves three jobs:
 
-### 1. Controller Layer (`com.natlangx.controller`)
-- **Responsibility**: Exposes REST endpoints and handles HTTP request validation.
-- **Key Pattern**: `RestController` with `Jakarta Validation`.
-- **Primary Endpoint**: `POST /api/process` - Processes a `ProcessRequest` and returns an `AgentResponse`.
+- Resolve the requested AI provider and model.
+- Execute the agentic pipeline for generation, analysis, optimization, and explanation.
+- Persist and expose history plus dictionary data for the extension.
 
-### 2. Service Layer (`com.natlangx.service`)
-- **Responsibility**: Contains the core business logic and orchestrates the "Agentic" cycle.
-- **Key Pattern**: `AgentService` handles the complex logic of calling AI providers, parsing results, and persisting the transpilation history.
-- **TranspilationService**: Manages the CRUD operations for historical data.
+The current runtime is designed to degrade gracefully. If the selected provider fails and a heuristic provider is available, the backend can retry the operation instead of hard failing immediately.
 
-### 3. DAO/Persistence Layer (`com.natlangx.dao`)
-- **Responsibility**: Direct interaction with the **MySQL** database.
-- **Key Pattern**: **JDBC-First** approach. We avoid heavy ORMs like Hibernate to maintain maximum control over SQL performance and mapping.
-- **Schema**: Uses a performance-indexed `transpilation` table.
+## Layered architecture
 
----
+### Controller layer
 
-## Agentic Optimization Lifecycle
+Controllers expose HTTP endpoints such as:
 
-The `AgentService` implements a "Decision Pipeline" for every request:
-1.  **Request Decoration**: Enriches the user prompt with project-wide context.
-2.  **AI Orchestration**: Parallelizes calls to AI providers if multiple analyses are needed.
-3.  **Metrics Extraction**: Uses regex and structured parsing to extract complexity scores.
-4.  **Consolidation**: Merges optimized code, explanations, and decision logs into a unified `AgentResponse`.
+- `POST /api/process`
+- `POST /api/dictionary/ingest`
+- `GET /api/dictionary`
+- `GET /api/history`
+- `POST /api/transpilations`
+- `GET /api/transpilations`
 
----
+Controller responsibilities are limited to request validation, routing, and translating Java exceptions into HTTP responses.
 
-## Tech Stack & Dependencies
+### Service layer
 
-- **Spring Boot 3.x**: Web, Validation, DevTools.
-- **Java 21**: Utilizing modern language features for clean code.
-- **MySQL Driver**: High-speed JDBC connectivity.
-- **Lombok**: Reduced boilerplate for DTOs and Models.
+Services orchestrate the business logic:
 
-> [!NOTE]
-> The backend is designed to be **Stateless**. Scaling the engine is as simple as launching more instances behind a load balancer, as all state is persisted in MySQL.
+- `AgentService` coordinates the agentic reasoning flow.
+- `PipelineService` builds and enriches project context.
+- `TranspilationService` stores and retrieves persisted history.
+- `DictionaryService` manages learned term mappings.
+
+The service layer is where the backend decides which tool to call, what to retry, and how to merge the final response.
+
+### DAO layer
+
+The persistence layer uses JDBC and manual SQL instead of a heavy ORM. This keeps the SQL explicit and makes it easier to reason about the data shape for history and dictionary records.
+
+## CodeAgent pipeline
+
+`CodeAgent` is the core orchestrator for `/api/process`. Its behavior depends on the incoming `action` field.
+
+### Action modes
+
+- `auto`: run the full decision pipeline and optionally classify the topic.
+- `optimize`: focus on optimization and analysis.
+- `summarize`: produce an explanation-style summary of the selected code.
+- `better`: provide a higher-level improvement path instead of rewriting code.
+
+The pipeline enforces code requirements for `optimize`, `summarize`, and `better`. If the caller does not provide code for one of those actions, the backend rejects the request early.
+
+### Step order
+
+For `auto` or mixed actions, the agent generally follows this order:
+
+1. Select the provider.
+2. Optionally generate code from the prompt.
+3. Analyze complexity.
+4. Optionally optimize the generated code.
+5. Optionally explain the result.
+6. Merge project suggestions with analysis suggestions.
+
+The `steps` array in the response records what happened, which is useful for debugging and for the sidebar status display.
+
+### Fallback behavior
+
+The current implementation retries with the heuristic provider when the selected provider throws during generation, optimization, explanation, summary, or better-option synthesis.
+
+This is important because it changes the backend from a single-provider dependency into a resilient pipeline:
+
+- generation can continue even if the preferred provider is down,
+- optimization can continue even if the chosen model is unavailable,
+- explanation can still be produced when the cloud provider errors out,
+- the final decision log records which provider actually produced the result.
+
+Fallback markers are added to the `steps` list so the caller can tell when the response came from a retry path.
+
+## Response shape
+
+A successful response typically includes:
+
+- `finalCode`: the final code emitted by the agent,
+- `optimizedCode`: the code after optimization passes,
+- `timeComplexity` and `spaceComplexity`:
+  analysis results,
+- `explanation`: summary or explanation text,
+- `suggestions`: merged analysis and project suggestions,
+- `topic`: the detected topic for `auto` actions,
+- `steps`: pipeline markers,
+- `decisionLog`: a human-readable summary of the route the agent took.
+
+## Configuration model
+
+The backend reads configuration from environment variables and from `application.properties`. It also imports optional `application-local.properties` so local overrides can be committed to a workspace without replacing the shared defaults.
+
+Important values include:
+
+- `natlangx.ollama.baseUrl` and `natlangx.ollama.model`
+- `natlangx.openai.baseUrl`, `natlangx.openai.model`, and `natlangx.openai.apiKey`
+- `natlangx.groq.baseUrl`, `natlangx.groq.model`, and `natlangx.groq.apiKey`
+- `natlangx.gemini.baseUrl`, `natlangx.gemini.model`, and `natlangx.gemini.apiKey`
+- `natlangx.anthropic.baseUrl`, `natlangx.anthropic.model`, and `natlangx.anthropic.apiKey`
+
+The backend default port is `9001`.
+
+## Persistence model
+
+The backend stores two main kinds of records:
+
+- transpilation history for user-visible audit and search,
+- dictionary entries used by the learned term normalization pipeline.
+
+Because persistence is JDBC-first, the repository can keep SQL queries explicit and tune them independently from the object model.
+
+## API contract examples
+
+### Example request
+
+```json
+{
+  "userId": 1,
+  "action": "optimize",
+  "prompt": "reduce the nested loop cost",
+  "code": "for (int i = 0; i < n; i++) { for (int j = 0; j < n; j++) { } }",
+  "language": "Java",
+  "provider": "openai",
+  "projectContext": "Contains nested loops and TODO markers"
+}
+```
+
+### Example response
+
+```json
+{
+  "finalCode": "public class NatLangOutput { ... }",
+  "optimizedCode": "public class NatLangOutput { ... }",
+  "timeComplexity": "O(n)",
+  "spaceComplexity": "O(1)",
+  "explanation": "This code can be improved by...",
+  "suggestions": "Reduce nested loops using hashing.",
+  "topic": "Data Structures",
+  "steps": ["Generated", "Analyzed", "Optimized", "Explained"],
+  "decisionLog": "Agent chose optimize-first pipeline | Provider: openai"
+}
+```
+
+## Operational notes
+
+- The backend is best run separately from the extension when using agentic features.
+- If a provider key changes, restart the backend so the Java process picks up the new local override.
+- The heuristic fallback is a resilience layer, not a replacement for a properly configured provider.
+
+## Related docs
+
+- [Configuration & Operations](configuration-and-operations.md)
+- [Frontend Implementation](frontend-implementation.md)
+- [Advanced Java Concepts](java-concepts.md)

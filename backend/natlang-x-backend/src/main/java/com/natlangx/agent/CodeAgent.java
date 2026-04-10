@@ -77,10 +77,23 @@ public class CodeAgent {
         String workingCode = code;
 
         if (decision.isShouldGenerate()) {
-            Tool generator = new CodeGeneratorTool(aiProvider, language);
-            workingCode = generator.execute(prompt);
+            try {
+                Tool generator = new CodeGeneratorTool(aiProvider, language);
+                workingCode = generator.execute(prompt);
+            } catch (Exception e) {
+                AIProvider fallback = getFallbackProvider(aiProvider);
+                if (fallback == aiProvider) {
+                    throw e;
+                }
+                aiProvider = fallback;
+                Tool generator = new CodeGeneratorTool(aiProvider, language);
+                workingCode = generator.execute(prompt);
+                decision.getSteps().add("Generated-Fallback");
+            }
             workingCode = AIProvider.normalizeGeneratedCode(workingCode);
-            decision.getSteps().add("Generated");
+            if (!decision.getSteps().contains("Generated-Fallback")) {
+                decision.getSteps().add("Generated");
+            }
         }
 
         AnalysisResult analysisResult = new AnalysisResult("O(1)", "O(1)", "No suggestions");
@@ -92,16 +105,28 @@ public class CodeAgent {
         }
 
         if (decision.isShouldOptimize()) {
-            Tool optimizer = new OptimizationTool(aiProvider, language);
-            workingCode = optimizer.execute(workingCode);
+            try {
+                Tool optimizer = new OptimizationTool(aiProvider, language);
+                workingCode = optimizer.execute(workingCode);
+                decision.getSteps().add("Optimized");
+            } catch (Exception e) {
+                AIProvider fallback = getFallbackProvider(aiProvider);
+                if (fallback == aiProvider) {
+                    throw e;
+                }
+                aiProvider = fallback;
+                Tool optimizer = new OptimizationTool(aiProvider, language);
+                workingCode = optimizer.execute(workingCode);
+                decision.getSteps().add("Optimized-Fallback");
+            }
             workingCode = AIProvider.normalizeGeneratedCode(workingCode);
-            decision.getSteps().add("Optimized");
 
             // Only re-optimize if action is explicitly optimize AND result is still quadratic
             if ("optimize".equalsIgnoreCase(action)) {
                 analysisResult = complexityAnalyzer.analyze(workingCode, language);
                 if ("O(n^2)".equals(analysisResult.getTimeComplexity())) {
-                    workingCode = optimizer.execute(workingCode);
+                    Tool optimizerRetry = new OptimizationTool(aiProvider, language);
+                    workingCode = optimizerRetry.execute(workingCode);
                     workingCode = AIProvider.normalizeGeneratedCode(workingCode);
                     decision.getSteps().add("Optimized-Again");
                     analysisResult = complexityAnalyzer.analyze(workingCode, language);
@@ -111,9 +136,20 @@ public class CodeAgent {
 
         // Only explain if explicitly requested via action parameter (not for standalone optimize/better)
         if (decision.isShouldExplain() && "auto".equals(action)) {
-            Tool explainer = new ExplanationTool(aiProvider, language);
-            response.setExplanation(explainer.execute(workingCode));
-            decision.getSteps().add("Explained");
+            try {
+                Tool explainer = new ExplanationTool(aiProvider, language);
+                response.setExplanation(explainer.execute(workingCode));
+                decision.getSteps().add("Explained");
+            } catch (Exception e) {
+                AIProvider fallback = getFallbackProvider(aiProvider);
+                if (fallback == aiProvider) {
+                    throw e;
+                }
+                aiProvider = fallback;
+                Tool explainer = new ExplanationTool(aiProvider, language);
+                response.setExplanation(explainer.execute(workingCode));
+                decision.getSteps().add("Explained-Fallback");
+            }
         }
 
         response.setOptimizedCode(workingCode);

@@ -1,44 +1,49 @@
-# Java 21 & Spring Boot 3: Advanced Concepts in NatLang X
+# Java 21 & Spring Boot 3 in NatLang X
 
-The NatLang X backend leverage modern **Java 21** features and **Spring Boot 3** patterns to provide a scalable, high-performance agentic engine.
+This page describes the Java and Spring Boot patterns that matter in the NatLang X backend. The goal is not to showcase every modern Java feature, but to explain the implementation choices that keep the service predictable and maintainable.
 
-## Java 21 Features
+## Java-side patterns that show up in the codebase
 
-### 1. Modern Stream API
-The backend uses **Java Streams** throughout its controllers and services for efficient, declarative data processing.
-- **Example**: `providers.stream().map(AIProvider::health).toList()` provides a clean, zero-boilerplate health check across the entire provider ecosystem.
+### Constructor injection
 
-### 2. Records & DTOs (Data Transfer Objects)
-- **Benefit**: Reduced boilerplate for data-centric classes.
-- **Usage**: Every request (`ProcessRequest`) and response (`AgentResponse`) between the extension and the backend is modeled using records (or Lombok-enhanced classes) to ensure immutability and technical clarity.
+Backend components are wired through constructor injection rather than field injection. This keeps dependencies explicit and makes the orchestration code easy to test in isolation.
 
-### 3. Pattern Matching (Switch Expressions)
-- **Implementation**: Used for provider resolution and complex error handling logic, ensuring that exhaustive checks are performed during development.
+### Locale-safe string handling
 
----
+The agent pipeline normalizes provider and action names with `Locale.ROOT` before comparison. That avoids platform-dependent casing issues when routing provider work or interpreting actions such as `auto`, `optimize`, `summarize`, and `better`.
 
-## Spring Boot 3 Patterns
+### Collection-driven orchestration
 
-### 1. Constructor-Based Dependency Injection
-We strictly use **Constructor Injection** for all services and controllers.
-- **Why?**: It ensures that dependencies are immutable and available at instantiation time, preventing `NullPointerException` issues during unit testing.
+The backend keeps its provider list in memory and iterates over it to resolve the requested provider or locate the heuristic fallback provider. This makes provider selection data-driven rather than hardcoding provider branches in multiple places.
 
-### 2. Jakarta Persistence & Beans Validation
-- **Usage**: The `@Valid` annotation on Controller endpoints ensures that payloads are structurally correct before any agentic logic is executed.
-- **JDBC Persistence**: Custom row mappers and optimized SQL queries minimize the overhead of database interactions.
+### Defensive fallback logic
 
-### 3. RestController with Global Exception Handling
-- **Pattern**: A unified exception handler transforms Java errors into high-level terminal error codes (e.g., `NL-401`, `NL-503`) for the extension to display.
+The Java code uses try/catch blocks around provider-dependent tool execution so that a failed model call can fall back to a heuristic provider when available. That pattern is repeated for generation, optimization, explanation, and the specialized summarize/better paths.
 
----
+### Immutable response assembly
 
-## Logic Patterns
+Responses are assembled step by step, but the final contract is fully populated before returning to the controller. This keeps the API stable and predictable for the extension client.
 
-### 1. Agentic Tool Orchestration
-The "Agentic" logic revolves around **Tool-Driven Analysis**. Instead of a single AI call, the backend can orchestrate multiple tools (AST Parser, Complexity Evaluator) and merge their findings.
+## Spring Boot patterns
 
-### 2. Project Context Analytics
-- **Implementation**: The backend analyzes "Context Blobs" sent from the extension to provide more coherent optimization suggestions based on the project's specific coding style and existing class structures.
+### Component scanning and stereotypes
 
-> [!IMPORTANT]
-> The use of **Java 21 Virtual Threads** (Project Loom) is currently being explored for the next release to further improve the throughput of simultaneous AI provider requests.
+The backend uses standard Spring stereotypes such as `@Component` and service/controller annotations so the runtime can wire the pipeline automatically.
+
+### Optional local overrides
+
+`spring.config.import=optional:classpath:application-local.properties` lets the backend import workspace-local overrides without making them mandatory. That pattern is useful when the extension writes provider keys into a local file during development.
+
+### Explicit HTTP contract
+
+The extension expects structured JSON responses from the backend. The Java service therefore keeps the API contract narrow and stable, which reduces the amount of parsing logic needed on the TypeScript side.
+
+## Operational implications
+
+The most important Java-side behavior for NatLang is resilience. When a provider fails, the backend does not immediately stop the pipeline if another provider can answer the same request. That keeps the experience usable in mixed local/cloud setups.
+
+## Related docs
+
+- [Configuration & Operations](configuration-and-operations.md)
+- [Backend Implementation](backend-implementation.md)
+- [Frontend Implementation](frontend-implementation.md)

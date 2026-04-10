@@ -24,7 +24,7 @@ NatLang is built on a high-performance, distributed architecture ensuring stabil
 - **Transpilation Engine**: Interface-driven logic supporting SSE (Server-Sent Events) and JSON streaming.
 - **Backend (Agentic AI)**: Java-based orchestration for deep code analysis and logical validation.
 - **AI Core**: Native multi-provider support:
-    - **Local**: Ollama (CodeLlama, DeepSeek, Starcoder2).
+  - **Local**: Ollama (default model: `gemma3:4b`).
   - **Cloud**: Anthropic Claude 3.5, Google Gemini 1.5 Pro/Flash, Groq-hosted Llama, OpenAI GPT-4o.
 - **Build & CI**: esbuild, ESLint, GitHub Actions (for deployment).
 
@@ -57,6 +57,8 @@ Beyond simple generation, NatLang offers an advanced Agentic Pipeline powered by
 - **Complexity Metrics**: Real-time evaluation of code modularity and performance.
 - **Optimization Suggestions**: Automated refactoring recommendations for improved efficiency.
 - **Project-Wide Context**: Deeper integration with your existing codebase for coherent expansion.
+- **Provider Resilience**: Retries generation, optimization, and explanation with the heuristic provider when the preferred provider fails.
+- **Credential Sync**: API keys entered in the extension are stored in SecretStorage and mirrored into the backend local override file.
 
 ---
 
@@ -93,7 +95,7 @@ The central hub for all operations. It manages the lifecycle of a generation req
 ### Prerequisites
 - Visual Studio Code v1.80.0 or higher.
 - For local execution: [Ollama](https://ollama.com) installed and running.
-- For Agentic Pipeline: Java Runtime Environment (JRE) 17 or higher.
+- For Agentic Pipeline: Java Runtime Environment (JRE) 21 or higher.
 
 ### Installation
 1. Search for **NatLang** in the VS Code Marketplace.
@@ -107,8 +109,8 @@ The central hub for all operations. It manages the lifecycle of a generation req
 | Setting | Description | Default |
 |---------|-------------|---------|
 | `natlang.aiProvider` | Primary AI engine for generation | `Ollama` |
-| `natlang.defaultLanguage` | The initial target language | `TypeScript` |
-| `natlang.ollamaModel` | The local model to invoke | `codellama` |
+| `natlang.defaultLanguage` | The initial target language | `Python` |
+| `natlang.ollamaModel` | The local model to invoke | `gemma3:4b` |
 | `natlang.groqModel` | The Groq model to invoke | `llama-3.3-70b-versatile` |
 | `natlang.backendBaseUrl` | Endpoint for the Agentic AI API | `http://localhost:9001` |
 | `natlang.liveGenerationDebounceMs` | Delay before live preview refreshes after typing | `650` |

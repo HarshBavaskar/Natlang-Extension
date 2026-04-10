@@ -188,6 +188,61 @@ export function activate(context: vscode.ExtensionContext) {
     return withSource.length;
   };
 
+  const normalizeApiKey = (value: string): string => {
+    return value.trim().replace(/^['"]+|['"]+$/g, '');
+  };
+
+  const applyBackendApiKeyOverride = async (provider: string, key: string): Promise<void> => {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!workspaceRoot) {
+      return;
+    }
+
+    const propertyMap: Record<string, string> = {
+      anthropic: 'natlangx.anthropic.apiKey',
+      gemini: 'natlangx.gemini.apiKey',
+      groq: 'natlangx.groq.apiKey',
+      openai: 'natlangx.openai.apiKey'
+    };
+
+    const propertyName = propertyMap[provider];
+    if (!propertyName) {
+      return;
+    }
+
+    const localPropsUri = vscode.Uri.joinPath(
+      workspaceRoot,
+      'backend',
+      'natlang-x-backend',
+      'src',
+      'main',
+      'resources',
+      'application-local.properties'
+    );
+
+    let existing = '';
+    try {
+      const raw = await vscode.workspace.fs.readFile(localPropsUri);
+      existing = Buffer.from(raw).toString('utf8');
+    } catch {
+      existing = '# Local backend overrides\n';
+    }
+
+    const escapedKey = normalizeApiKey(key).replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
+    const assignment = `${propertyName}=${escapedKey}`;
+    const lineRegex = new RegExp(`^\\s*${propertyName.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\s*=.*$`, 'm');
+
+    let next = existing;
+    if (lineRegex.test(existing)) {
+      next = existing.replace(lineRegex, assignment);
+    } else {
+      const suffix = existing.endsWith('\n') ? '' : '\n';
+      next = `${existing}${suffix}${assignment}\n`;
+    }
+
+    await vscode.workspace.fs.writeFile(localPropsUri, Buffer.from(next, 'utf8'));
+  };
+
   const normalizeAgenticCode = (code: string): string => {
     if (!code) {
       return '';
@@ -616,8 +671,28 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     if (key) {
-      await context.secrets.store('natlang.' + provider + 'Key', key);
-      vscode.window.showInformationMessage('API key saved securely!');
+      const normalizedKey = normalizeApiKey(key);
+      if (!normalizedKey) {
+        vscode.window.showErrorMessage('API key cannot be empty.');
+        return;
+      }
+
+      await context.secrets.store('natlang.' + provider + 'Key', normalizedKey);
+      try {
+        await applyBackendApiKeyOverride(provider, normalizedKey);
+        const action = await vscode.window.showInformationMessage(
+          'API key saved for frontend and backend local config. Restart backend to apply new key.',
+          'Restart Backend'
+        );
+        if (action === 'Restart Backend') {
+          const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('NatLang Backend');
+          terminal.show();
+          terminal.sendText('cd backend\\natlang-x-backend');
+          terminal.sendText('mvn spring-boot:run');
+        }
+      } catch {
+        vscode.window.showWarningMessage('API key saved in frontend secrets, but backend local config update failed.');
+      }
     }
   }));
 
